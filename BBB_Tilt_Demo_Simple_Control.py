@@ -1,5 +1,6 @@
 import serial
 import Adafruit_BBIO.PWM as PWM
+import Adafruit_BBIO.GPIO as GPIO
 import time
 import datetime
 import Adafruit_BBIO.ADC as ADC
@@ -17,16 +18,17 @@ enable_output = True
 # Need to test control loop speed effects, maybe run everything on timed intervals to make independent of faster loops 
 
 # Competition settings, sensitive to measurement noise but strong fast control 
-P_gain = 0.24#0.24
-I_gain = 0.00030
-D_gain = 5.0#5.5
+# P_gain = 0.34#0.24
+# I_gain = 0.0005#0.00030
+# D_gain = 7.9#5.5#5.5
+enable_competition_foolery = False
 
 # Good set of gains below
 # handle static SP well and analog noise decently
 # encounters an area of unstable oscillations in the D term between SP 400 - 700 sometimes
-# P_gain = 0.225 
-# I_gain = 0.0002
-# D_gain = 3.0
+P_gain = 0.24 
+I_gain = 0.0002#.0002
+D_gain = 3.75#3.00
 
 
 error = 0 # 10x the error in mm
@@ -50,13 +52,28 @@ target_RH = 647 # mm
 output_angle = 90 # initial servo output angle
 target_aoa = output_angle
 
+# Competition scoring 
+competiton_scoring = False
+if competiton_scoring:
+    red_pin = "P9_12"
+    green_pin = "P9_15"
+    red_on = False
+    green_on = False
+    GPIO.setup(red_pin, GPIO.OUT)
+    GPIO.setup(green_pin, GPIO.OUT)
+    target_small = 647 - 25
+    target_big = 647 + 35
+    win_time = 3
+    Won = False
+    in_window = False
+
 # Analog reading 
 ADC.setup()
 pot_value = 0
 pot_values = [target_RH]*1000 # rolling average the analog read to smooth it out
 
 # parameters
-servo_max = 175 # degrees
+servo_max = 180 # degrees
 servo_min = 0 # degrees
 
 # timing setup
@@ -80,10 +97,11 @@ dist_log = []
 # servo output setup
 if enable_output:
     servo_pin = "P8_13"
-    duty_min = 7.5 # HK 15138 = 3.5 # HS-815BB = (tilt ball) 7.5
-    duty_max = 11.25  # HK 15138 = 14 # HS-815BB = 11.25 
+    duty_min = 7.4 # HK 15138 = 3.5 # HS-815BB = (tilt ball) 7.5
+    duty_max = 11.3  # HK 15138 = 14 # HS-815BB = 11.25 
     duty_span = duty_max - duty_min
-    PWM.start(servo_pin, (duty_max-duty_min)/2+duty_min, 60.0)
+    PWM.start(servo_pin, (duty_max-duty_min)/2.0+duty_min, 60)
+    # PWM.start(servo_pin,10.0,100)
 
 output_angle = 90 # initial servo output angle
 
@@ -112,111 +130,292 @@ gained_val = 0.0 # sensor reading in mm
 
 while True:
     try:
-        # pot_values.append(ADC.read("P9_40"))
-        # pot_values.pop(0)
-        # pot_value = sum(pot_values)/len(pot_values)
-        # target_RH = int(pot_value/0.4*800+300)
-        # print(target_RH)
+        # ------------ competition scoring code ---------
+        if competiton_scoring:
+            start = raw_input("Enter a space to start the timer")
+            if start == " ":
+                start_comp_time = datetime.datetime.now()
+                while True:
+                    if Won:
+                        print("WONWONWOWN")
+                        red_on = True
+                        green_on = True
+                        elapsed_time = datetime.datetime.now() - start_comp_time
+                        print("Elapsed_Time: ",str(elapsed_time.seconds)+"."+str(elapsed_time.microseconds/10000))
+                        GPIO.output(red_pin, GPIO.HIGH)
+                        GPIO.output(green_pin, GPIO.HIGH)
+                        a = datetime.datetime.now()
+                        while (datetime.datetime.now() - a).seconds < 3:
+                            Won = False                        
+                        red_on = False
+                        green_on = False
+                        break
+                    elif gained_val > target_small and gained_val < target_big: # in target window
+                        print("in target!!!!!!!!!!!!!!")
+                        GPIO.output(red_pin, GPIO.HIGH)
+                        if not in_window: 
+                            in_target = datetime.datetime.now()
+                            in_window = True
+                        if (datetime.datetime.now() - in_target).seconds >= win_time:
+                            Won = True
+                            in_window = False
+                    else:
+                        # print("NOTHING")
+                        red_on = False
+                        green_on = False
+                        in_window = False
+
+                    if red_on:
+                        print("red on")
+                        GPIO.output(red_pin, GPIO.HIGH)
+                    else:
+                        GPIO.output(red_pin,GPIO.LOW)
+                        # print("red off")
+                    if green_on:
+                        print("green on")
+                        GPIO.output(green_pin, GPIO.HIGH)
+                    else:
+                        GPIO.output(green_pin,GPIO.LOW)
+                        # print("green off")
+                    # ------------- pot code --------------
+                    # pot_values.append(ADC.read("P9_40"))
+                    # pot_values.pop(0)
+                    # pot_value = sum(pot_values)/len(pot_values)
+                    # target_RH = int(pot_value/0.4*800+300)
+                    # print(target_RH)
 
 
-        # ------------- timing code -------------
-        delta = datetime.datetime.now() - last_time
-        last_time = datetime.datetime.now()
-        loop_time_last = float(delta.microseconds)/float(1000)
-        if len(loop_times) < num_loops_avg:
-            loop_times.insert(0,loop_time_last)
-        elif oneshot == True:
-            oneshot = False
-            print("queue filled")
-            loop_times.pop(num_loops_avg-1)
-            loop_times.insert(0,loop_time_last)
+                    # ------------- timing code -------------
+                    delta = datetime.datetime.now() - last_time
+                    last_time = datetime.datetime.now()
+                    loop_time_last = float(delta.microseconds)/float(1000)
+                    if len(loop_times) < num_loops_avg:
+                        loop_times.insert(0,loop_time_last)
+                    elif oneshot == True:
+                        oneshot = False
+                        print("queue filled")
+                        loop_times.pop(num_loops_avg-1)
+                        loop_times.insert(0,loop_time_last)
+                    else:
+                        loop_times.pop(num_loops_avg-1)
+                        loop_times.insert(0,loop_time_last)
+                        
+            ##        print(loop_time_last," milliseconds")
+
+                    if run_for_fixed_time:
+                        if (datetime.datetime.now() - start_time).seconds > duration:
+                            print("run duration reached")
+                            break
+                    # ------------- END OF timing code -------------
+                    # ------------- logging code -------------------
+                    dist_log.append(gained_val)
+
+                    # ------ END OF logging code -------------------
+                    
+                    for c in ser.read():
+                        if c == '\r':
+            ##                print(line)
+                            line = []
+
+                            try:
+                                ival = int(val)
+                            except ValueError:
+                                print("value error: ", val)
+                            
+            ##                print(val)
+            ##                print(ival)
+                            rval = float(ival)
+            ##                print(rval)
+                            val = ''
+                            break
+                        else:
+                            line.append(c)
+                            val = val + c
+
+                    gained_val = rval * sen_gain # sensor reading in mm
+            ##        print(gained_val)
+            ##        print(round(gained_val,2), " inches")
+
+                    error = int(gained_val)-target_RH
+                    # print(error)
+                    
+                    P_term =  error*P_gain
+
+                    # I_term = (error + I_term)*I_gain 
+                    if (target_aoa < 60 and target_aoa > -60): sum_error = error + sum_error
+                    else: sum_error = sum_error
+                    I_term = sum_error*I_gain 
+
+                    # D_term = (1-memory_weight_D_error)*((error - last_error)*D_gain)+memory_weight_D_error*D_term
+
+                    # if (datetime.datetime.now() - last_derivative_read).microseconds/1000 >= D_read_ms:
+                    #     D_term = (error - last_derivate_error)*D_gain
+                    #     last_derivate_error = error # update the derivate error 
+                    #     last_derivative_read = datetime.datetime.now() # update the derivative read time
+
+                    rolling_avg_D_errors.append(error)
+                    rolling_avg_D_errors.pop(0)
+                    # D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
+
+                    # competition, variable D_gain proportional to P_term correction to provide fast stops from long distances
+                    if enable_competition_foolery:
+                        # D_gain = abs(P_term)*7.0/175+5.0
+                        if abs(error) < 200: D_gain = 5.0
+                        else: D_gain = 5.0 
+                        # if D_gain > 15: D_gain = 15
+                        # elif D_gain < 1: D_gain = 1
+                    D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
+                    # if P_term > 60: D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain*1.25
+                    # else: D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
+
+                    target_aoa = P_term +  I_term + D_term # control equation
+                    if enable_output: print("P term:", int(P_term)," D term:",int(D_term)," I term:",int(I_term),"target aoa:",int(target_aoa)," error:",error," sum error: ",sum_error," target RH:",target_RH)
+                    target_aoa = -target_aoa # flip if needed 
+                    output_angle = target_aoa + 90 # convert aoa to absolute angle for servo
+
+                    # update error terms
+                    last_error = error
+
+                    # threshold servo commands in case of errors
+                    if output_angle > servo_max: output_angle = servo_max
+                    elif output_angle < servo_min: output_angle = servo_min
+                    
+                    # print(output_angle)
+
+                    if enable_output:
+                        duty = float(output_angle)
+                        duty = ((duty / 180) * duty_span + duty_min) 
+                        PWM.set_duty_cycle(servo_pin, duty)
         else:
-            loop_times.pop(num_loops_avg-1)
-            loop_times.insert(0,loop_time_last)
-            
-##        print(loop_time_last," milliseconds")
+              # if inside target window 
+            #      red on 
+            #     start timer
+            #     if timer > win_time
+            #          flag green on won
+            #  elif outside target window 
+            # red off 
+            # reset timer 
 
-        if run_for_fixed_time:
-            if (datetime.datetime.now() - start_time).seconds > duration:
-                print("run duration reached")
-                break
-        # ------------- END OF timing code -------------
-        # ------------- logging code -------------------
-        dist_log.append(gained_val)
+            # if flag won 
+            #     green on 
+            #     red on 
+            #     start celly timer 
+            #     if celly timer > 30 seconds 
+            #         green off 
+            #         red off
+            #         flag won = off 
+            #         celly timer reset 
 
-        # ------ END OF logging code -------------------
-        
-        for c in ser.read():
-            if c == '\r':
-##                print(line)
-                line = []
 
-                try:
-                    ival = int(val)
-                except ValueError:
-                    print("value error: ", val)
-                
-##                print(val)
-##                print(ival)
-                rval = float(ival)
-##                print(rval)
-                val = ''
-                break
+            # ------------- pot code --------------
+            # pot_values.append(ADC.read("P9_40"))
+            # pot_values.pop(0)
+            # pot_value = sum(pot_values)/len(pot_values)
+            # target_RH = int(pot_value/0.4*800+300)
+            # print(target_RH)
+
+
+            # ------------- timing code -------------
+            delta = datetime.datetime.now() - last_time
+            last_time = datetime.datetime.now()
+            loop_time_last = float(delta.microseconds)/float(1000)
+            if len(loop_times) < num_loops_avg:
+                loop_times.insert(0,loop_time_last)
+            elif oneshot == True:
+                oneshot = False
+                print("queue filled")
+                loop_times.pop(num_loops_avg-1)
+                loop_times.insert(0,loop_time_last)
             else:
-                line.append(c)
-                val = val + c
+                loop_times.pop(num_loops_avg-1)
+                loop_times.insert(0,loop_time_last)
+                
+    ##        print(loop_time_last," milliseconds")
 
-        gained_val = rval * sen_gain # sensor reading in mm
-##        print(gained_val)
-##        print(round(gained_val,2), " inches")
+            if run_for_fixed_time:
+                if (datetime.datetime.now() - start_time).seconds > duration:
+                    print("run duration reached")
+                    break
+            # ------------- END OF timing code -------------
+            # ------------- logging code -------------------
+            dist_log.append(gained_val)
 
-        error = int(gained_val)-target_RH
-        # print(error)
-        
-        P_term =  error*P_gain
+            # ------ END OF logging code -------------------
+            
+            for c in ser.read():
+                if c == '\r':
+    ##                print(line)
+                    line = []
 
-        # I_term = (error + I_term)*I_gain 
-        if (target_aoa < 60 and target_aoa > -60): sum_error = error + sum_error
-        else: sum_error = sum_error
-        I_term = sum_error*I_gain 
+                    try:
+                        ival = int(val)
+                    except ValueError:
+                        print("value error: ", val)
+                    
+    ##                print(val)
+    ##                print(ival)
+                    rval = float(ival)
+    ##                print(rval)
+                    val = ''
+                    break
+                else:
+                    line.append(c)
+                    val = val + c
 
-        # D_term = (1-memory_weight_D_error)*((error - last_error)*D_gain)+memory_weight_D_error*D_term
+            gained_val = rval * sen_gain # sensor reading in mm
+    ##        print(gained_val)
+    ##        print(round(gained_val,2), " inches")
 
-        # if (datetime.datetime.now() - last_derivative_read).microseconds/1000 >= D_read_ms:
-        #     D_term = (error - last_derivate_error)*D_gain
-        #     last_derivate_error = error # update the derivate error 
-        #     last_derivative_read = datetime.datetime.now() # update the derivative read time
+            error = int(gained_val)-target_RH
+            # print(error)
+            
+            P_term =  error*P_gain
 
-        rolling_avg_D_errors.append(error)
-        rolling_avg_D_errors.pop(0)
-        # D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
+            # I_term = (error + I_term)*I_gain 
+            if (target_aoa < 60 and target_aoa > -60): sum_error = error + sum_error
+            else: sum_error = sum_error
+            I_term = sum_error*I_gain 
 
-        # competition, variable D_gain proportional to P_term correction to provide fast stops from long distances
-        D_gain = abs(P_term)*2.2/175+5.3
-        # if D_gain > 15: D_gain = 15
-        # elif D_gain < 1: D_gain = 1
-        D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
-        # if P_term > 60: D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain*1.25
-        # else: D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
+            # D_term = (1-memory_weight_D_error)*((error - last_error)*D_gain)+memory_weight_D_error*D_term
 
-        target_aoa = P_term +  I_term + D_term # control equation
-        print("P term:", int(P_term)," D term:",int(D_term)," I term:",int(I_term),"target aoa:",int(target_aoa)," error:",error," sum error: ",sum_error," target RH:",target_RH)
-        target_aoa = -target_aoa # flip if needed 
-        output_angle = target_aoa + 90 # convert aoa to absolute angle for servo
+            # if (datetime.datetime.now() - last_derivative_read).microseconds/1000 >= D_read_ms:
+            #     D_term = (error - last_derivate_error)*D_gain
+            #     last_derivate_error = error # update the derivate error 
+            #     last_derivative_read = datetime.datetime.now() # update the derivative read time
 
-        # update error terms
-        last_error = error
+            rolling_avg_D_errors.append(error)
+            rolling_avg_D_errors.pop(0)
+            # D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
 
-        # threshold servo commands in case of errors
-        if output_angle > servo_max: output_angle = servo_max
-        elif output_angle < servo_min: output_angle = servo_min
-        
-        # print(output_angle)
+            # competition, variable D_gain proportional to P_term correction to provide fast stops from long distances
+            if enable_competition_foolery:
+                # D_gain = abs(P_term)*7.0/175+5.0
+                if abs(error) < 200: D_gain = 5.0
+                else: D_gain = 5.0 
+                # if D_gain > 15: D_gain = 15
+                # elif D_gain < 1: D_gain = 1
+            D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
+            # if P_term > 60: D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain*1.25
+            # else: D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
 
-        if enable_output:
-            duty = float(output_angle)
-            duty = ((duty / 180) * duty_span + duty_min) 
-            PWM.set_duty_cycle(servo_pin, duty)
+            target_aoa = P_term +  I_term + D_term # control equation
+            if enable_output: print("P term:", int(P_term)," D term:",int(D_term)," I term:",int(I_term),"target aoa:",int(target_aoa)," error:",error," sum error: ",sum_error," target RH:",target_RH)
+            target_aoa = -target_aoa # flip if needed 
+            output_angle = target_aoa + 90 # convert aoa to absolute angle for servo
+
+            # update error terms
+            last_error = error
+
+            # threshold servo commands in case of errors
+            if output_angle > servo_max: output_angle = servo_max
+            elif output_angle < servo_min: output_angle = servo_min
+            
+            # print(output_angle)
+
+            if enable_output:
+                duty = float(output_angle)
+                duty = ((duty / 180) * duty_span + duty_min) 
+                PWM.set_duty_cycle(servo_pin, duty)
 
     except KeyboardInterrupt: # allows for easy program stop by tester
         break
@@ -233,6 +432,9 @@ for lap in loop_times:
     total = total + lap
 loop_time_average = total/num_loops_avg
 print("average loop time: ",loop_time_average," ms")
+
+if competiton_scoring:
+    GPIO.cleanup()
 
 # plot logs 
 if enable_logging:
