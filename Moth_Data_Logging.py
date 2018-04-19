@@ -1,4 +1,4 @@
-PC_testing = True
+PC_testing = False
 
 if not PC_testing: 
 	import Adafruit_BBIO.GPIO as GPIO
@@ -12,6 +12,7 @@ data_row = [] # row of data to be saved to a csv, format: time string [hh:mm:ss]
 data_array = [] # list of data rows, each row is saved at the measurement frequency, once per period
 
 usb_path = "/media/...../"
+usb_path = "/home/debian/Desktop/"
 now = datetime.datetime.now()
 f_name = (usb_path+"Moth_Data_" + str(now.year)+"-"+str(now.month)+"-"+str(now.day)
          +"_"+str(now.hour)+"h"+str(now.minute)+"m"+str(now.second)+"s")
@@ -45,6 +46,8 @@ recording_freq = 100 # hz
 recording_freq_micros = 1/recording_freq*1000*1000 # number of microseconds before data grab
 timer_data_save = datetime.datetime.now()
 
+timer_program = datetime.datetime.now()
+
 # ------------- Serial reading setup ------------
 ser = serial.Serial(
    port = '/dev/ttyUSB0',
@@ -69,8 +72,13 @@ watch_dog_01_count = 0 # counter for csv saving timeout
 
 while True:
 	# recording running switch
-	if GPIO.input(record_sw_pin): Recording = True
-	else: Recording = False
+	# if GPIO.input(record_sw_pin): Recording = True
+	# else: Recording = False
+
+	if (datetime.datetime.now()-timer_program).seconds > 20:
+		timer_program = datetime.datetime.now() 
+		Recording = not Recording
+		print("Recording: ",Recording)
 
 	if not Recording:
 		## -------------- LED state indicator -----------
@@ -83,6 +91,7 @@ while True:
 		# --------------- Saving csv data file ------------
 		# save any data that may have come from a stopped recording session
 		if len(data_array) > 0 and saving_data:
+			print("saving after recording stop")
 			now = datetime.datetime.now()
 			f_name = (usb_path+"Moth_Data_" + str(now.year)+"-"+str(now.month)+"-"+str(now.day)
 			         +"_"+str(now.hour)+"h"+str(now.minute)+"m"+str(now.second)+"s")
@@ -90,8 +99,8 @@ while True:
 			data_array = np.asarray(data_array)
 			np.savetxt((f_name+".csv"),data_array,delimiter=",")
 			watch_dog_01 = datetime.datetime.now()
-			while not os.path.isfile(f_name):
-				if (datetime.datetime.now() - watch_dog_01).second > 5:
+			while not os.path.isfile(f_name+".csv"):
+				if (datetime.datetime.now() - watch_dog_01).seconds > 5:
 					print("ERROR in watch_dog_01")
 					watch_dog_01 = datetime.datetime.now()
 					watch_dog_01_count += 1 # increment the error flag count
@@ -120,7 +129,7 @@ while True:
 			data_row = []
 
 			n = datetime.datetime.now()
-			data_row.append(str(n.hour)+":"+str(n.minute)+":"+str(n.second))
+			#data_row.append(str(n.hour)+":"+str(n.minute)+":"+str(n.second))
 
 			poten_value = ADC.read(poten_pin)
 			poten_value = ADC.read(poten_pin) # read twice due to possible known ADC driver bug
@@ -152,6 +161,7 @@ while True:
 		# --------------- Saving csv data file ------------
 		# save any data that may have come from a stopped recording session
 		if len(data_array) > 200000 and saving_data: # roughly 33 minutes of data if recording at 100 hz
+			print("saving after 200000 row limit")
 			now = datetime.datetime.now()
 			f_name = (usb_path+"Moth_Data_" + str(now.year)+"-"+str(now.month)+"-"+str(now.day)
 			         +"_"+str(now.hour)+"h"+str(now.minute)+"m"+str(now.second)+"s")
@@ -159,8 +169,8 @@ while True:
 			data_array = np.asarray(data_array)
 			np.savetxt((f_name+".csv"),data_array,delimiter=",")
 			watch_dog_01 = datetime.datetime.now()
-			while not os.path.isfile(f_name):
-				if (datetime.datetime.now() - watch_dog_01).second > 5:
+			while not os.path.isfile(f_name+".csv"):
+				if (datetime.datetime.now() - watch_dog_01).seconds > 5:
 					print("ERROR in watch_dog_01")
 					watch_dog_01 = datetime.datetime.now()
 					watch_dog_01_count += 1 # increment the error flag count
@@ -169,13 +179,9 @@ while True:
 
 
 	# --------------- Outputs ----------------
-	if r_led: print("red on")
-	else: print("red off")
-	if b_led: print("blue on")
-	else: print("blue off")
+	if r_led: GPIO.output(red_pin,GPIO.HIGH)#print("red on")
+	else: GPIO.output(red_pin,GPIO.LOW)#print("red off")
+	if b_led: GPIO.output(blue_pin,GPIO.HIGH)#print("blue on")
+	else: GPIO.output(blue_pin,GPIO.LOW)#print("blue off")
 	# ------ End ---- Outputs --------------
 
-
-	# if saving & greater than 50k rows, then save the file 
-	data_array = np.asarray(data_array)
-	if saving_data: np.savetxt("data_array.csv",data_array,delimiter=",")
