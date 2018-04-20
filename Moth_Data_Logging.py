@@ -1,4 +1,8 @@
+# ---------- Program Mode Controls ---------------
 PC_testing = False
+saving_data = False
+Ultrasonic_enable = False 
+# -- End --- Program Mode Controls ---------------
 
 if not PC_testing: 
 	import Adafruit_BBIO.GPIO as GPIO
@@ -11,34 +15,32 @@ import os.path
 data_row = [] # row of data to be saved to a csv, format: time string [hh:mm:ss], potentiometer [0-1.0],ultrasonic [mm]
 data_array = [] # list of data rows, each row is saved at the measurement frequency, once per period
 
-usb_path = "/media/...../"
-usb_path = "/home/debian/Desktop/"
+usb_path = "/media/usb/"
+# usb_path = "/home/debian/Desktop/"
 now = datetime.datetime.now()
 f_name = (usb_path+"Moth_Data_" + str(now.year)+"-"+str(now.month)+"-"+str(now.day)
          +"_"+str(now.hour)+"h"+str(now.minute)+"m"+str(now.second)+"s")
 print(f_name)
 
-red_pin = "P9_12"
-blue_pin = "P9_41"
+red_pin = "P9_41"
 r_led = False
-b_led = False
 if not PC_testing:
 	GPIO.setup(red_pin, GPIO.OUT)
-	GPIO.setup(blue_pin, GPIO.OUT)
 
-record_sw_pin = "P9_23"
+record_sw_pin = "P9_15"
 if not PC_testing: GPIO.setup(record_sw_pin, GPIO.IN)
 
-poten_pin = "P9_38"
+poten_pin = "P9_33"
 poten_value = 0 # input range 0 - 1.0
 if not PC_testing: ADC.setup()
 
-saving_data = True
-
-Recording = False
 
 timer_1hz = datetime.datetime.now()
 timer_led = datetime.datetime.now()
+
+epoch = datetime.datetime.utcfromtimestamp(0) # 1970 UNIX time
+
+Recording = False
 
 blink_count = 0 # counter for led indicator
 
@@ -49,15 +51,16 @@ timer_data_save = datetime.datetime.now()
 timer_program = datetime.datetime.now()
 
 # ------------- Serial reading setup ------------
-ser = serial.Serial(
-   port = '/dev/ttyUSB0',
-   baudrate = 9600,
-   parity = serial.PARITY_NONE,
-   stopbits = serial.STOPBITS_ONE,
-   bytesize = serial.EIGHTBITS,
-       timeout = 0)
-print("connected to: ")
-print(ser.portstr)
+if Ultrasonic_enable:
+	ser = serial.Serial(
+	   port = '/dev/ttyUSB0',
+	   baudrate = 9600,
+	   parity = serial.PARITY_NONE,
+	   stopbits = serial.STOPBITS_ONE,
+	   bytesize = serial.EIGHTBITS,
+	       timeout = 0)
+	print("connected to: ")
+	print(ser.portstr)
 
 line = []
 val = ''
@@ -72,25 +75,26 @@ watch_dog_01_count = 0 # counter for csv saving timeout
 
 while True:
 	# recording running switch
-	# if GPIO.input(record_sw_pin): Recording = True
-	# else: Recording = False
+	if GPIO.input(record_sw_pin): Recording = True
+	else: Recording = False
 
-	if (datetime.datetime.now()-timer_program).seconds > 20:
-		timer_program = datetime.datetime.now() 
-		Recording = not Recording
-		print("Recording: ",Recording)
+	# ---------- TESTING ONLY CODE -----------------
+	# if (datetime.datetime.now()-timer_program).seconds > 20:
+	# 	timer_program = datetime.datetime.now() 
+	# 	Recording = not Recording
+	# 	print("Recording: ",Recording)
+	# --- End -- TESTING ONLY CODE -----------------
 
 	if not Recording:
 		## -------------- LED state indicator -----------
 		if (datetime.datetime.now() - timer_1hz).seconds >= 1:
 			timer_1hz = datetime.datetime.now() # resets the timer
 			r_led = not r_led
-			b_led = not b_led
 		## --- End ------ LED state indicator -----------
 
 		# --------------- Saving csv data file ------------
 		# save any data that may have come from a stopped recording session
-		if len(data_array) > 0 and saving_data:
+		if len(data_array) > 10000 and saving_data:
 			print("saving after recording stop")
 			now = datetime.datetime.now()
 			f_name = (usb_path+"Moth_Data_" + str(now.year)+"-"+str(now.month)+"-"+str(now.day)
@@ -113,13 +117,11 @@ while True:
 			timer_led = datetime.datetime.now() # resets the timer
 			blink_count += 1 
 			r_led = False 
-			b_led = False
 			
 		elif blink_count > 0 and (datetime.datetime.now() - timer_led).microseconds/1000 >= 200 :
 			timer_led = datetime.datetime.now() # resets the timer
 			blink_count += 1 
 			r_led = not r_led 
-			b_led = not b_led 
 		if blink_count >= 5: blink_count = 0
 		## --- End ------ LED state indicator -----------
 
@@ -128,30 +130,32 @@ while True:
 			timer_data_save = datetime.datetime.now() # resets the timer
 			data_row = []
 
-			n = datetime.datetime.now()
-			#data_row.append(str(n.hour)+":"+str(n.minute)+":"+str(n.second))
+			unix_time_stamp = (datetime.datetime.now()-epoch).total_seconds()*1000
+			data_row.append(unix_time_stamp)
 
 			poten_value = ADC.read(poten_pin)
 			poten_value = ADC.read(poten_pin) # read twice due to possible known ADC driver bug
+			# print(poten_value)
 			data_row.append(poten_value)
 
 			# -------- Ultrasonic serial reading --------
-			for c in ser.read():
-				if c == '\r':
-					print(line)
-					line = []
+			if Ultrasonic_enable:
+				for c in ser.read():
+					if c == '\r':
+						print(line)
+						line = []
 
-					try:
-						ival = int(val)
-					except ValueError:
-						print("unexpected ultrasonic value: ", val)
-					rval = float(ival)
-					val = ''
-					break
-				else:
-					line.append(c)
-					val = val + c
-			gained_val = rval * sen_gain # sensor reading in mm
+						try:
+							ival = int(val)
+						except ValueError:
+							print("unexpected ultrasonic value: ", val)
+						rval = float(ival)
+						val = ''
+						break
+					else:
+						line.append(c)
+						val = val + c
+				gained_val = rval * sen_gain # sensor reading in mm
             # --End -- Ultrasonic serial reading --------
 			data_row.append(gained_val)
 
@@ -181,7 +185,5 @@ while True:
 	# --------------- Outputs ----------------
 	if r_led: GPIO.output(red_pin,GPIO.HIGH)#print("red on")
 	else: GPIO.output(red_pin,GPIO.LOW)#print("red off")
-	if b_led: GPIO.output(blue_pin,GPIO.HIGH)#print("blue on")
-	else: GPIO.output(blue_pin,GPIO.LOW)#print("blue off")
 	# ------ End ---- Outputs --------------
 
