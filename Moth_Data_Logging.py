@@ -1,7 +1,8 @@
 # ---------- Program Mode Controls ---------------
 PC_testing = False
-saving_data = False
-Ultrasonic_enable = False 
+saving_data = True
+Ultrasonic_enable = True
+auto_mount_usb = True
 # -- End --- Program Mode Controls ---------------
 
 if not PC_testing: 
@@ -10,17 +11,13 @@ if not PC_testing:
 import serial
 import datetime
 import numpy as np 
-import os.path
+import os
 
 data_row = [] # row of data to be saved to a csv, format: time string [hh:mm:ss], potentiometer [0-1.0],ultrasonic [mm]
 data_array = [] # list of data rows, each row is saved at the measurement frequency, once per period
 
 usb_path = "/media/usb/"
-# usb_path = "/home/debian/Desktop/"
 now = datetime.datetime.now()
-f_name = (usb_path+"Moth_Data_" + str(now.year)+"-"+str(now.month)+"-"+str(now.day)
-         +"_"+str(now.hour)+"h"+str(now.minute)+"m"+str(now.second)+"s")
-print(f_name)
 
 red_pin = "P9_41"
 r_led = False
@@ -45,7 +42,7 @@ Recording = False
 blink_count = 0 # counter for led indicator
 
 recording_freq = 100 # hz
-recording_freq_micros = 1/recording_freq*1000*1000 # number of microseconds before data grab
+recording_freq_micros = 1.0/recording_freq*1000*1000 # number of microseconds before data grab
 timer_data_save = datetime.datetime.now()
 
 timer_program = datetime.datetime.now()
@@ -73,6 +70,23 @@ gained_val = 0.0 # sensor reading in mm
 
 watch_dog_01_count = 0 # counter for csv saving timeout
 
+# ---------------- Mounting USB drive ----------
+mounted_successfully = False
+unmounted_successfully = True
+failed_mount = False
+mount_timer = datetime.datetime.now()
+if auto_mount_usb and not os.path.isfile('/media/usb/important_text.txt'):
+	mount_check = os.system('sudo mount /dev/sda1 /media/usb')
+	while True:
+		if mount_check == 0:
+			mounted_successfully = True
+			break
+		elif (datetime.datetime.now()-mount_timer).seconds > 15:
+			print('failed to mount')
+			failed_mount = True
+			break
+# ------ End ----- Mounting USB drive ----------
+
 while True:
 	# recording running switch
 	if GPIO.input(record_sw_pin): Recording = True
@@ -94,7 +108,7 @@ while True:
 
 		# --------------- Saving csv data file ------------
 		# save any data that may have come from a stopped recording session
-		if len(data_array) > 10000 and saving_data:
+		if len(data_array) > 500 and saving_data:
 			print("saving after recording stop")
 			now = datetime.datetime.now()
 			f_name = (usb_path+"Moth_Data_" + str(now.year)+"-"+str(now.month)+"-"+str(now.day)
@@ -109,9 +123,41 @@ while True:
 					watch_dog_01 = datetime.datetime.now()
 					watch_dog_01_count += 1 # increment the error flag count
 			data_array = [] # reset the data array now that it's been saved
+
+			# ---------------- Unmounting USB drive ----------
+			mount_timer = datetime.datetime.now()
+			if auto_mount_usb and os.path.isfile('/media/usb/important_text.txt'):
+				unmounted_successfully = False
+				mount_check = os.system('sudo umount /media/usb')
+				while True:
+					if mount_check == 0:
+						unmounted_successfully = True
+						break
+					elif (datetime.datetime.now()-mount_timer).seconds > 15:
+						failed_mount = True
+						print('failed to unmount')
+						break
+			# ------ End ----- Unmounting USB drive ----------
 		# ------ End ----- Saving csv data file ------------
 
+
+
 	elif Recording:
+		# ---------------- Mounting USB drive ----------
+		if auto_mount_usb and not os.path.isfile('/media/usb/important_text.txt') and not failed_mount:
+			mount_timer = datetime.datetime.now()
+			mounted_successfully = False
+			mount_check = os.system('sudo mount /dev/sda1 /media/usb')
+			while True:
+				if mount_check == 0:
+					mounted_successfully = True
+					break
+				elif (datetime.datetime.now()-mount_timer).seconds > 15:
+					failed_mount = True
+					print('failed to mount')
+					break
+		# ------ End ----- Mounting USB drive ----------
+
 		## -------------- LED state indicator -----------
 		if blink_count == 0 and (datetime.datetime.now() - timer_led).microseconds/1000 >= 600 :
 			timer_led = datetime.datetime.now() # resets the timer
@@ -142,7 +188,7 @@ while True:
 			if Ultrasonic_enable:
 				for c in ser.read():
 					if c == '\r':
-						print(line)
+						# print(line)
 						line = []
 
 						try:

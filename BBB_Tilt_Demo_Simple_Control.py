@@ -28,7 +28,7 @@ enable_competition_foolery = False
 # encounters an area of unstable oscillations in the D term between SP 400 - 700 sometimes
 P_gain = 0.24 
 I_gain = 0.0002#.0002
-D_gain = 3.75#3.00
+D_gain = 3.7#1.75#3.00 # was 3.75
 
 
 error = 0 # 10x the error in mm
@@ -97,8 +97,8 @@ dist_log = []
 # servo output setup
 if enable_output:
     servo_pin = "P8_13"
-    duty_min = 7.4 # HK 15138 = 3.5 # HS-815BB = (tilt ball) 7.5
-    duty_max = 11.3  # HK 15138 = 14 # HS-815BB = 11.25 
+    duty_min = 7.5 # HK 15138 = 3.5 # HS-815BB = (tilt ball) 7.5
+    duty_max = 11.25  # HK 15138 = 14 # HS-815BB = 11.25 
     duty_span = duty_max - duty_min
     PWM.start(servo_pin, (duty_max-duty_min)/2.0+duty_min, 60)
     # PWM.start(servo_pin,10.0,100)
