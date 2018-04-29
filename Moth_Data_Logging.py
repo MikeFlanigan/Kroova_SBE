@@ -15,8 +15,8 @@ import os
 import time
 
 '''
-row of data to be saved to a csv, format: 
-microseconds since program start, unix time (converted to PST tho), potentiometer [0-1.0],ultrasonic [mm]
+data_row : row of data to be saved to a csv, format: 
+unix time (converted to PST tho), potentiometer [0-1.0],ultrasonic [mm]
 '''
 data_row = [] 
 data_array = [] # list of data rows, each row is saved at the measurement frequency, once per period
