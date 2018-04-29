@@ -184,7 +184,6 @@ while True:
 
 			unix_time_stamp = ((datetime.datetime.now()-epoch)-datetime.timedelta(hours=7)).total_seconds()
 			data_row.append(unix_time_stamp)
-			data_row.append((datetime.datetime.now()-timer_program).total_seconds()*1000)# should log the number of miliseconds since program start
 
 			poten_value = ADC.read(poten_pin)
 			poten_value = ADC.read(poten_pin) # read twice due to possible known ADC driver bug
