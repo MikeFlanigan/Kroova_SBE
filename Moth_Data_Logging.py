@@ -53,7 +53,7 @@ timer_data_save = datetime.datetime.now()
 timer_program = datetime.datetime.now()
 
 # ------------- Serial reading setup ------------
-time.sleep(10) # attempt to solve bootup problem
+time.sleep(15) # attempt to solve bootup problem
 if Ultrasonic_enable:
 	ser = serial.Serial(
 	   port = '/dev/ttyUSB0',
@@ -184,7 +184,7 @@ while True:
 
 			unix_time_stamp = ((datetime.datetime.now()-epoch)-datetime.timedelta(hours=7)).total_seconds()
 			data_row.append(unix_time_stamp)
-			data_row.append((datetime.datetime.now()-timer_program).microseconds)
+			data_row.append((datetime.datetime.now()-timer_program).total_seconds()*1000)# should log the number of miliseconds since program start
 
 			poten_value = ADC.read(poten_pin)
 			poten_value = ADC.read(poten_pin) # read twice due to possible known ADC driver bug
