@@ -2,7 +2,7 @@
 PC_testing = False
 saving_data = True
 Ultrasonic_enable = True
-auto_mount_usb = True
+auto_mount_usb = False
 # -- End --- Program Mode Controls ---------------
 
 if not PC_testing: 
@@ -13,7 +13,11 @@ import datetime
 import numpy as np 
 import os
 
-data_row = [] # row of data to be saved to a csv, format: time string [hh:mm:ss], potentiometer [0-1.0],ultrasonic [mm]
+'''
+row of data to be saved to a csv, format: 
+microseconds since program start, unix time (converted to PST tho), potentiometer [0-1.0],ultrasonic [mm]
+'''
+data_row = [] 
 data_array = [] # list of data rows, each row is saved at the measurement frequency, once per period
 
 usb_path = "/media/usb/"
@@ -176,8 +180,9 @@ while True:
 			timer_data_save = datetime.datetime.now() # resets the timer
 			data_row = []
 
-			unix_time_stamp = (datetime.datetime.now()-epoch).total_seconds()*1000
+			unix_time_stamp = ((datetime.datetime.now()-epoch)-datetime.timedelta(hours=7)).total_seconds()
 			data_row.append(unix_time_stamp)
+			data_row.append((datetime.datetime.now()-timer_program).microseconds)
 
 			poten_value = ADC.read(poten_pin)
 			poten_value = ADC.read(poten_pin) # read twice due to possible known ADC driver bug
