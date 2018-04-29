@@ -2,7 +2,7 @@
 PC_testing = False
 saving_data = True
 Ultrasonic_enable = True
-auto_mount_usb = False
+auto_mount_usb = True
 # -- End --- Program Mode Controls ---------------
 
 if not PC_testing: 
@@ -12,6 +12,7 @@ import serial
 import datetime
 import numpy as np 
 import os
+import time
 
 '''
 row of data to be saved to a csv, format: 
@@ -52,6 +53,7 @@ timer_data_save = datetime.datetime.now()
 timer_program = datetime.datetime.now()
 
 # ------------- Serial reading setup ------------
+time.sleep(10) # attempt to solve bootup problem
 if Ultrasonic_enable:
 	ser = serial.Serial(
 	   port = '/dev/ttyUSB0',
