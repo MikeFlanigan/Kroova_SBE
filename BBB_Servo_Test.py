@@ -31,8 +31,9 @@ while True:
         PWM.cleanup()
         break
     angle_f = float(angle)
-    # duty = 100 - ((angle_f / 180) * duty_span + duty_min) 
+
+    # comment these two lines and uncomment the below to find duty cycle limits manually
     duty = ((angle_f / 180) * duty_span + duty_min) 
     PWM.set_duty_cycle(servo_pin, duty)
 
-  # PWM.set_duty_cycle(servo_pin,angle_f) # uncomment this line to find duty cycle limits
+  # PWM.set_duty_cycle(servo_pin,angle_f) # uncomment this line to find duty cycle limits manually

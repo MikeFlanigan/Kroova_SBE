@@ -98,13 +98,6 @@ while True:
 	if GPIO.input(record_sw_pin): Recording = True
 	else: Recording = False
 
-	# ---------- TESTING ONLY CODE -----------------
-	# if (datetime.datetime.now()-timer_program).seconds > 20:
-	# 	timer_program = datetime.datetime.now() 
-	# 	Recording = not Recording
-	# 	print("Recording: ",Recording)
-	# --- End -- TESTING ONLY CODE -----------------
-
 	if not Recording:
 		## -------------- LED state indicator -----------
 		if (datetime.datetime.now() - timer_1hz).seconds >= 1:
