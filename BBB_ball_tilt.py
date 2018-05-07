@@ -30,8 +30,8 @@ add_noise_to_RH = True # add varying amounts of constant disturbances to the RH
 # handle static SP well and analog noise decently
 # encounters an area of unstable oscillations in the D term between SP 400 - 700 sometimes
 P_gain = 0.24 
-I_gain = 0.0002#.0002
-D_gain = 3.7#1.75#3.00 # was 3.75
+I_gain = 0.0002 #.0002
+D_gain = 1.75 #1.75#3.00 # was 3.75
 
 
 error = 0 # 10x the error in mm
