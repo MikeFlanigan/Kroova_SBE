@@ -268,8 +268,6 @@ for lap in loop_times:
 loop_time_average = total/num_loops_avg
 print("average loop time: ",loop_time_average," ms")
 
-if competiton_scoring:
-    GPIO.cleanup()
 
 # plot logs 
 if enable_logging:
