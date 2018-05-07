@@ -4,6 +4,7 @@ import Adafruit_BBIO.GPIO as GPIO
 import time
 import datetime
 import Adafruit_BBIO.ADC as ADC
+import random
 
 
 # user settings
@@ -21,7 +22,6 @@ enable_output = True
 # P_gain = 0.34#0.24
 # I_gain = 0.0005#0.00030
 # D_gain = 7.9#5.5#5.5
-enable_competition_foolery = False
 
 # Good set of gains below
 # handle static SP well and analog noise decently
@@ -35,8 +35,6 @@ error = 0 # 10x the error in mm
 last_error = 0 # for storing errors from previous loop
 sum_error = 0 # integral term of error
 
-memory_weight_D_error = 0.96 # a larger value increases the value of old derivatives over new derivatives 
-new_D_gain = 30 # magnifies non zero derivative errors to help add realistic inertia ?? ... 
 D_read_Hz = 20 # Read derivative changes at 100x per second. This can be tuned to roughly match the dynamics of the system.
 D_read_ms = 1.0/D_read_Hz*1000 # time in ms between each derivative read
 last_derivative_read = datetime.datetime.now()
@@ -48,18 +46,24 @@ P_term = 0
 I_term = 0
 D_term = 0
 
-target_RH = 647 # mm
+target_RH_init = 647 # mm
+target_RH = target_RH_init # mm
 output_angle = 90 # initial servo output angle
 target_aoa = output_angle
 
 # Analog reading 
+set_RH_w_pot = False # use a potentiometer to set the ride height
 ADC.setup()
-pot_value = 0
-pot_values = [target_RH]*1000 # rolling average the analog read to smooth it out
+poten_pin = "P9_33"
+poten_value = 0 # input range 0 - 1.0
+poten_values = [target_RH]*1000 # rolling average the analog read to smooth it out
 
-# parameters
-servo_max = 180 # degrees
-servo_min = 0 # degrees
+# Noise
+add_noise_to_RH = False # add varying amounts of constant disturbances to the RH 
+noise_range = 50 # mm - looking to get to 200 mm
+wave_freq = 250 # ms
+wave_noise_timer = datetime.datetime.now()
+temp_wave = 0 # wave size parameter
 
 # timing setup
 delta = 0
@@ -81,20 +85,26 @@ dist_log = []
 
 
 # servo output setup
-Servo_Type = 3 # enummerator for servos 
+Servo_Type = 2 # enummerator for servos 
 if Servo_Type == 1:
     ## HK 15138
     duty_min = 3.5 
     duty_max = 14.0 
+    servo_max = 180 # degrees
+    servo_min = 0 # degrees
 elif Servo_Type == 2:
     ## HS-815BB (ball tilt servo)
     duty_min = 7.5 
     duty_max = 11.25 
+    servo_max = 180 # degrees
+    servo_min = 0 # degrees
 elif Servo_Type == 3:
     ## DS3218mg (wing)
     # note these two are "soft" limits based on the wing build and desired mechanical limits
     duty_min = 6.0 
     duty_max = 11.0  
+    servo_max = 180 # degrees # update?
+    servo_min = 0 # degrees # update?
 
 if enable_output:
     servo_pin = "P8_13"
@@ -128,12 +138,30 @@ gained_val = 0.0 # sensor reading in mm
 while True:
     try:
         # ------------- pot code --------------
-        # pot_values.append(ADC.read("P9_40"))
-        # pot_values.pop(0)
-        # pot_value = sum(pot_values)/len(pot_values)
-        # target_RH = int(pot_value/0.4*800+300)
+        if set_RH_w_pot:
+            print(ADC.read(poten_pin))
+        # poten_values.append(ADC.read("P9_40"))
+        # poten_values.pop(0)
+        # poten_value = sum(poten_values)/len(poten_values)
+        # target_RH = int(poten_value/0.4*800+300)
         # print(target_RH)
 
+        # ------------- Ride Height Noise Code -----
+        # adding noise to the RH should provide similar disturbances to the type of noise the system will experience due 
+        # to wave chop 
+        # Noise
+add_noise_to_RH = False # add varying amounts of constant disturbances to the RH 
+noise_range = 50 # mm - looking to get to 200 mm
+wave_freq = 250 # ms
+wave_noise_timer = datetime.datetime.now()
+temp_wave = 0 # wave size parameter
+        if add_noise_to_RH:
+            if (datetime.datetime.now() - wave_noise_timer).microseconds/1000 > wave_freq:
+                wave_noise_timer = datetime.datetime.now()
+                # generate an incoming wave 
+                temp_wave = random.randint(0,noise_range)
+                if target_RH == target_RH_init: target_RH = target_RH + temp_wave
+                else: target_RH = target_RH - temp_wave
 
         # ------------- timing code -------------
         delta = datetime.datetime.now() - last_time
@@ -196,7 +224,6 @@ while True:
         else: sum_error = sum_error
         I_term = sum_error*I_gain 
 
-        # D_term = (1-memory_weight_D_error)*((error - last_error)*D_gain)+memory_weight_D_error*D_term
 
         # if (datetime.datetime.now() - last_derivative_read).microseconds/1000 >= D_read_ms:
         #     D_term = (error - last_derivate_error)*D_gain
