@@ -105,6 +105,7 @@ elif Servo_Type == 3:
     duty_max = 11.0  
     servo_max = 180 # degrees # update?
     servo_min = 0 # degrees # update?
+duty_span = duty_max - duty_min
 
 if enable_output:
     servo_pin = "P8_13"
