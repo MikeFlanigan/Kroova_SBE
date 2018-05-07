@@ -10,6 +10,9 @@ import random
 # user settings
 debug_mode = False
 enable_output = True
+Servo_Type = 2 # enummerator for servos --- 1 = Hobby king cheap, 2 = Ball tilt, 3 = Car wing
+set_RH_w_pot = False # use a potentiometer to set the ride height
+add_noise_to_RH = True # add varying amounts of constant disturbances to the RH 
 
 # gains
 # P_gain = 0.225#0.130#0.0625#0.25 # proportional gain
@@ -52,14 +55,12 @@ output_angle = 90 # initial servo output angle
 target_aoa = output_angle
 
 # Analog reading 
-set_RH_w_pot = False # use a potentiometer to set the ride height
 ADC.setup()
 poten_pin = "P9_33"
 poten_value = 0 # input range 0 - 1.0
 poten_values = [target_RH]*1000 # rolling average the analog read to smooth it out
 
 # Noise
-add_noise_to_RH = False # add varying amounts of constant disturbances to the RH 
 noise_range = 50 # mm - looking to get to 200 mm
 wave_freq = 250 # ms
 wave_noise_timer = datetime.datetime.now()
@@ -85,7 +86,6 @@ dist_log = []
 
 
 # servo output setup
-Servo_Type = 2 # enummerator for servos 
 if Servo_Type == 1:
     ## HK 15138
     duty_min = 3.5 
