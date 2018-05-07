@@ -149,12 +149,6 @@ while True:
         # ------------- Ride Height Noise Code -----
         # adding noise to the RH should provide similar disturbances to the type of noise the system will experience due 
         # to wave chop 
-        # Noise
-add_noise_to_RH = False # add varying amounts of constant disturbances to the RH 
-noise_range = 50 # mm - looking to get to 200 mm
-wave_freq = 250 # ms
-wave_noise_timer = datetime.datetime.now()
-temp_wave = 0 # wave size parameter
         if add_noise_to_RH:
             if (datetime.datetime.now() - wave_noise_timer).microseconds/1000 > wave_freq:
                 wave_noise_timer = datetime.datetime.now()
