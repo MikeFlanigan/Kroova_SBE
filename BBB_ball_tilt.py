@@ -156,7 +156,7 @@ while True:
                 # generate an incoming wave 
                 temp_wave = random.randint(0,noise_range)
                 if target_RH == target_RH_init: target_RH = target_RH + temp_wave
-                else: target_RH = target_RH - temp_wave
+                else: target_RH = target_RH_init
 
         # ------------- timing code -------------
         delta = datetime.datetime.now() - last_time
