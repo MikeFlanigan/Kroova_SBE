@@ -33,11 +33,17 @@ record_sw_pin = "P9_15"
 if not PC_testing: GPIO.setup(record_sw_pin, GPIO.IN)
 
 print("TEST PRINT")
-
+time.sleep(15) # attempt to solve bootup problem
 poten_pin = "P9_33"
 poten_value = 0 # input range 0 - 1.0
-if not PC_testing: ADC.setup()
-
+try:
+	if not PC_testing: ADC.setup()
+except:
+	e = sys.exc_info()[0]
+	print("ERROR: ",e)
+	# try again
+	time.sleep(15) # attempt to solve bootup problem
+	if not PC_testing: ADC.setup()
 
 timer_1hz = datetime.datetime.now()
 timer_led = datetime.datetime.now()

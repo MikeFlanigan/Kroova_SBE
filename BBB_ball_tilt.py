@@ -55,6 +55,7 @@ output_angle = 90 # initial servo output angle
 target_aoa = output_angle
 
 # Analog reading 
+time.sleep(15) # attempt to solve bootup problem
 ADC.setup()
 poten_pin = "P9_33"
 poten_value = 0 # input range 0 - 1.0
