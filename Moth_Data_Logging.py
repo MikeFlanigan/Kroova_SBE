@@ -32,6 +32,8 @@ if not PC_testing:
 record_sw_pin = "P9_15"
 if not PC_testing: GPIO.setup(record_sw_pin, GPIO.IN)
 
+print("TEST PRINT")
+
 poten_pin = "P9_33"
 poten_value = 0 # input range 0 - 1.0
 if not PC_testing: ADC.setup()
