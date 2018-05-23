@@ -15,7 +15,7 @@ import random
 debug_mode = False
 enable_output = True
 Servo_Type = 3 # enummerator for servos --- 1 = Hobby king cheap, 2 = Ball tilt, 3 = Car wing
-
+PC_testing = False
 
 # Good set of gains below
 P_gain = 0.24 
@@ -168,9 +168,9 @@ while True:
 	            duty = float(output_angle)
 	            duty = ((duty / 180) * duty_span + duty_min) 
 	            PWM.set_duty_cycle(servo_pin, duty)
-	    elif not flight_control:
+        elif not flight_control:
 	    	if enable_output:
-	            duty = float(control_aoa)
+	        	duty = float(control_aoa)
 	            duty = ((duty / 180) * duty_span + duty_min) 
 	            PWM.set_duty_cycle(servo_pin, duty)
 
