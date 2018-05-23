@@ -170,9 +170,9 @@ while True:
 	            PWM.set_duty_cycle(servo_pin, duty)
         elif not flight_control:
 	    	if enable_output:
-	        	duty = float(control_aoa)
-	            duty = ((duty / 180) * duty_span + duty_min) 
-	            PWM.set_duty_cycle(servo_pin, duty)
+				duty = float(control_aoa)
+				duty = ((duty / 180) * duty_span + duty_min) 
+				PWM.set_duty_cycle(servo_pin, duty)
 
     except KeyboardInterrupt: # allows for easy program stop by tester
         break
