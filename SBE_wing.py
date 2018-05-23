@@ -17,7 +17,7 @@ enable_output = True
 Servo_Type = 3 # enummerator for servos --- 1 = Hobby king cheap, 2 = Ball tilt, 3 = Car wing
 PC_testing = False
 
-filter_US_input = False
+filter_US_input = True
 US_input_array = []
 filtered_input = 0
 US_filter_size = 50
@@ -187,7 +187,7 @@ while True:
 				duty = float(control_aoa)
 				duty = ((duty / 180) * duty_span + duty_min) 
 				PWM.set_duty_cycle(servo_pin, duty)
-			print("Control angle:", control_aoa)
+				print("Control angle:", control_aoa)
 
     except KeyboardInterrupt: # allows for easy program stop by tester
         break
