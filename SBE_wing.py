@@ -23,12 +23,12 @@ filtered_input = 0
 US_filter_size = 50
 
 # Good set of gains below
-P_gain = 0.24 
+P_gain = 0.3 
 I_gain = 0.0002 #.0002
-D_gain = 1.25 #1.75#3.00 # was 3.75
+D_gain = 0.5 #1.75#3.00 # was 3.75
 
 # safety control angle for steady descent
-control_aoa = 55 # aoa
+control_aoa = 65 # aoa
 
 error = 0 # 10x the error in mm
 last_error = 0 # for storing errors from previous loop
@@ -146,6 +146,8 @@ while True:
 	        	if len(US_input_array) >= US_filter_size:
 	        		US_input_array.pop(0)
 
+	        	gained_val = sum(US_input_array)/len(US_input_array) # averaged US input
+
 	##        print(gained_val)
 	##        print(round(gained_val,2), " inches")
 
@@ -185,6 +187,7 @@ while True:
 				duty = float(control_aoa)
 				duty = ((duty / 180) * duty_span + duty_min) 
 				PWM.set_duty_cycle(servo_pin, duty)
+			print("Control angle:", control_aoa)
 
     except KeyboardInterrupt: # allows for easy program stop by tester
         break
