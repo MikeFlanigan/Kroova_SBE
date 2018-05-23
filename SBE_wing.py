@@ -33,8 +33,9 @@ D_read_Hz = 20 # Read derivative changes at 100x per second. This can be tuned t
 D_read_ms = 1.0/D_read_Hz*1000 # time in ms between each derivative read
 last_derivative_read = datetime.datetime.now()
 last_derivate_error = 0
-rolling_avg_D_errors = [0]*50 # 50 seems good 
+rolling_avg_D_errors = [0]*200 # 50 seems good 
 
+# initialization
 P_term = 0
 I_term = 0
 D_term = 0
@@ -110,6 +111,7 @@ gained_val = 0.0 # sensor reading in mm
 while True:
     try:
     	if GPIO.input(run_pin): flight_control = True
+    	else: flight_control = False
 
     	if flight_control:
 	        for c in ser.read():

@@ -44,7 +44,7 @@ last_derivative_read = datetime.datetime.now()
 last_derivate_error = 0
 rolling_avg_D_errors = [0]*50 # 50 seems good 
 
-
+# initialization
 P_term = 0
 I_term = 0
 D_term = 0
