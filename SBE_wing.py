@@ -160,7 +160,7 @@ while True:
 	        if output_angle > servo_max: output_angle = servo_max
 	        elif output_angle < servo_min: output_angle = servo_min
 
-	        if enable_output: print("P term:", int(P_term)," D term:",int(D_term)," I term:",int(I_term),"output aoa:",int(output_aoa)," error:",error," sum error: ",sum_error," target RH:",target_RH)
+	        if enable_output: print("P term:", int(P_term)," D term:",int(D_term)," I term:",int(I_term), "target angle:",int(target_aoa+90),"output angle:",int(output_angle)," error:",error," sum error: ",sum_error," target RH:",target_RH)
 
 	        # update error terms
 	        last_error = error
