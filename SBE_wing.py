@@ -23,7 +23,7 @@ I_gain = 0.0002 #.0002
 D_gain = 1.75 #1.75#3.00 # was 3.75
 
 # safety control angle for steady descent
-control_aoa = 2 # aoa
+control_aoa = 35 # aoa
 
 error = 0 # 10x the error in mm
 last_error = 0 # for storing errors from previous loop
@@ -33,7 +33,7 @@ D_read_Hz = 20 # Read derivative changes at 100x per second. This can be tuned t
 D_read_ms = 1.0/D_read_Hz*1000 # time in ms between each derivative read
 last_derivative_read = datetime.datetime.now()
 last_derivate_error = 0
-rolling_avg_D_errors = [0]*200 # 50 seems good 
+rolling_avg_D_errors = [0]*50 # 50 seems good 
 
 # initialization
 P_term = 0
@@ -42,7 +42,7 @@ D_term = 0
 
 target_RH_init = 647 # mm
 target_RH = target_RH_init # mm
-output_angle = 90 # initial servo output angle
+output_angle = control_aoa # initial servo output angle
 target_aoa = output_angle
 
 # Analog reading 
@@ -153,18 +153,17 @@ while True:
 	        D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
 
 	        target_aoa = P_term +  I_term + D_term # control equation
-	        if enable_output: print("P term:", int(P_term)," D term:",int(D_term)," I term:",int(I_term),"target aoa:",int(target_aoa)," error:",error," sum error: ",sum_error," target RH:",target_RH)
 	        target_aoa = -target_aoa # flip if needed 
 	        output_angle = target_aoa + 90 # convert aoa to absolute angle for servo
-
-	        # update error terms
-	        last_error = error
 
 	        # threshold servo commands in case of errors
 	        if output_angle > servo_max: output_angle = servo_max
 	        elif output_angle < servo_min: output_angle = servo_min
-	        
-	        # print(output_angle)
+
+	        if enable_output: print("P term:", int(P_term)," D term:",int(D_term)," I term:",int(I_term),"output aoa:",int(output_aoa)," error:",error," sum error: ",sum_error," target RH:",target_RH)
+
+	        # update error terms
+	        last_error = error
 
 	        if enable_output:
 	            duty = float(output_angle)
