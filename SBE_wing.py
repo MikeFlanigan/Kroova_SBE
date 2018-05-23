@@ -17,13 +17,18 @@ enable_output = True
 Servo_Type = 3 # enummerator for servos --- 1 = Hobby king cheap, 2 = Ball tilt, 3 = Car wing
 PC_testing = False
 
+filter_US_input = False
+US_input_array = []
+filtered_input = 0
+US_filter_size = 50
+
 # Good set of gains below
 P_gain = 0.24 
 I_gain = 0.0002 #.0002
-D_gain = 1.75 #1.75#3.00 # was 3.75
+D_gain = 1.25 #1.75#3.00 # was 3.75
 
 # safety control angle for steady descent
-control_aoa = 35 # aoa
+control_aoa = 55 # aoa
 
 error = 0 # 10x the error in mm
 last_error = 0 # for storing errors from previous loop
@@ -33,7 +38,7 @@ D_read_Hz = 20 # Read derivative changes at 100x per second. This can be tuned t
 D_read_ms = 1.0/D_read_Hz*1000 # time in ms between each derivative read
 last_derivative_read = datetime.datetime.now()
 last_derivate_error = 0
-rolling_avg_D_errors = [0]*50 # 50 seems good 
+rolling_avg_D_errors = [0]*100 # 50 seems good 
 
 # initialization
 P_term = 0
@@ -135,6 +140,12 @@ while True:
 	                val = val + c
 
 	        gained_val = rval * sen_gain # sensor reading in mm
+
+	        if filter_US_input:
+	        	US_input_array.append(gained_val)
+	        	if len(US_input_array) >= US_filter_size:
+	        		US_input_array.pop(0)
+
 	##        print(gained_val)
 	##        print(round(gained_val,2), " inches")
 
