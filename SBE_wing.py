@@ -23,9 +23,9 @@ filtered_input = 0
 US_filter_size = 50
 
 # Good set of gains below
-P_gain = 0.3 
-I_gain = 0.0002 #.0002
-D_gain = 0.5 #1.75#3.00 # was 3.75
+P_gain = 0.15 
+I_gain = 0.0002 #
+D_gain = 0.10 #
 
 # safety control angle for steady descent
 control_aoa = 65 # aoa
@@ -38,7 +38,7 @@ D_read_Hz = 20 # Read derivative changes at 100x per second. This can be tuned t
 D_read_ms = 1.0/D_read_Hz*1000 # time in ms between each derivative read
 last_derivative_read = datetime.datetime.now()
 last_derivate_error = 0
-rolling_avg_D_errors = [0]*100 # 50 seems good 
+rolling_avg_D_errors = [0]*70 # 50 seems good 
 
 # initialization
 P_term = 0
