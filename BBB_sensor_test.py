@@ -49,12 +49,11 @@ while True:
                 line.append(c)
                 val = val + c
 
-		gained_val = rval * sen_gain # sensor reading in mm
+	gained_val = rval * sen_gain # sensor reading in mm
 
-		poten_value = ADC.read(poten_pin)
-		poten_value = ADC.read(poten_pin) # read twice due to possible known ADC driver bug
-
-		print("Ultrasonic [mm]: ", gained_val, " Wand [0-1]: ", poten_value)
+	poten_value = ADC.read(poten_pin)
+	poten_value = ADC.read(poten_pin) # read twice due to possible known ADC driver bug
+	print("Ultrasonic [mm]: ", int(gained_val), " Wand [0-1]: ", poten_value)
     except KeyboardInterrupt: # allows for easy program stop by tester
         break
     
