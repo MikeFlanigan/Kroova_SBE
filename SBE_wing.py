@@ -9,7 +9,7 @@ import time
 import datetime
 import Adafruit_BBIO.ADC as ADC
 import random
-
+from SBE_functions import *
 
 # user settings
 debug_mode = False
@@ -92,15 +92,7 @@ if enable_output:
 output_angle = 90 # initial servo output angle
 
 # serial input setup
-ser = serial.Serial(
-    port = '/dev/ttyUSB0',
-    baudrate = 9600,
-    parity = serial.PARITY_NONE,
-    stopbits = serial.STOPBITS_ONE,
-    bytesize = serial.EIGHTBITS,
-        timeout = 0)
-print("connected to: ")
-print(ser.portstr)
+ser = setupSerial()
 
 
 line = []
@@ -119,25 +111,7 @@ while True:
     	else: flight_control = False
 
     	if flight_control:
-	        for c in ser.read():
-	            if c == '\r':
-	##                print(line)
-	                line = []
-
-	                try:
-	                    ival = int(val)
-	                except ValueError:
-	                    print("value error: ", val)
-	                
-	##                print(val)
-	##                print(ival)
-	                rval = float(ival)
-	##                print(rval)
-	                val = ''
-	                break
-	            else:
-	                line.append(c)
-	                val = val + c
+    		rval = ToughSonicRead(ser)
 
 	        gained_val = rval * sen_gain # sensor reading in mm
 

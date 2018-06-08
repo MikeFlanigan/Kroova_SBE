@@ -185,7 +185,7 @@ while True:
         dist_log.append(gained_val)
 
         # ------ END OF logging code -------------------
-        
+        ser.reset_input_buffer() ## super critical if this logger is running slower or out of sync with the sensor...
         for c in ser.read():
             if c == '\r':
 ##                print(line)

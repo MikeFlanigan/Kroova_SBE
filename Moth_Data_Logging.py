@@ -8,11 +8,11 @@ auto_mount_usb = True
 if not PC_testing: 
 	import Adafruit_BBIO.GPIO as GPIO
 	import Adafruit_BBIO.ADC as ADC
-import serial
 import datetime
 import numpy as np 
 import os
 import time
+from SBE_functions import *
 
 '''
 data_row : row of data to be saved to a csv, format: 
@@ -54,7 +54,7 @@ Recording = False
 
 blink_count = 0 # counter for led indicator
 
-recording_freq = 100 # hz
+recording_freq = 100 # hz (actually means it will record a bit slower than this due to checking time without interrupts)
 recording_freq_micros = 1.0/recording_freq*1000*1000 # number of microseconds before data grab
 timer_data_save = datetime.datetime.now()
 
@@ -63,20 +63,7 @@ timer_program = datetime.datetime.now()
 # ------------- Serial reading setup ------------
 time.sleep(15) # attempt to solve bootup problem
 if Ultrasonic_enable:
-	ser = serial.Serial(
-	   port = '/dev/ttyUSB0',
-	   baudrate = 9600,
-	   parity = serial.PARITY_NONE,
-	   stopbits = serial.STOPBITS_ONE,
-	   bytesize = serial.EIGHTBITS,
-	       timeout = 0)
-	print("connected to: ")
-	print(ser.portstr)
-
-line = []
-val = ''
-rval = 0.0
-ival =  0
+	ser = setupSerial()
 
 sen_gain = 0.003384*25.4 # converts sensor reading to mm
 gained_val = 0.0 # sensor reading in mm
@@ -193,21 +180,8 @@ while True:
 
 			# -------- Ultrasonic serial reading --------
 			if Ultrasonic_enable:
-				for c in ser.read():
-					if c == '\r':
-						# print(line)
-						line = []
+				rval = ToughSonicRead(ser)
 
-						try:
-							ival = int(val)
-						except ValueError:
-							print("unexpected ultrasonic value: ", val)
-						rval = float(ival)
-						val = ''
-						break
-					else:
-						line.append(c)
-						val = val + c
 				gained_val = rval * sen_gain # sensor reading in mm
             # --End -- Ultrasonic serial reading --------
 			data_row.append(gained_val)
