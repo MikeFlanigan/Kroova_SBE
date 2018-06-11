@@ -5,12 +5,12 @@ import time
 import datetime
 import Adafruit_BBIO.ADC as ADC
 import random
+from SBE_functions import *
 
 
 # user settings
 debug_mode = False
 enable_output = True
-Servo_Type = 2 # enummerator for servos --- 1 = Hobby king cheap, 2 = Ball tilt, 3 = Car wing
 set_RH_w_pot = False # use a potentiometer to set the ride height
 add_noise_to_RH = True # add varying amounts of constant disturbances to the RH 
 
@@ -87,25 +87,9 @@ dist_log = []
 
 
 # servo output setup
-if Servo_Type == 1:
-    ## HK 15138
-    duty_min = 3.5 
-    duty_max = 14.0 
-    servo_max = 180 # degrees
-    servo_min = 0 # degrees
-elif Servo_Type == 2:
-    ## HS-815BB (ball tilt servo)
-    duty_min = 7.5 
-    duty_max = 11.25 
-    servo_max = 180 # degrees
-    servo_min = 0 # degrees
-elif Servo_Type == 3:
-    ## DS3218mg (wing)
-    # note these two are "soft" limits based on the wing build and desired mechanical limits
-    duty_min = 6.0 
-    duty_max = 11.0  
-    servo_max = 180 # degrees # update?
-    servo_min = 0 # degrees # update?
+# 1-HK 15138, 2-HS-815BB (ball tilt servo), 3-DS3218mg (wing)"soft" limits, 4-Moth servo
+Servo_Type = 2
+duty_min, duty_max = servo_parameters(Servo_Type) # parameters for various kroova servos stored in the function
 duty_span = duty_max - duty_min
 
 if enable_output:
@@ -115,21 +99,9 @@ if enable_output:
 output_angle = 90 # initial servo output angle
 
 # serial input setup
-ser = serial.Serial(
-    port = '/dev/ttyUSB0',
-    baudrate = 9600,
-    parity = serial.PARITY_NONE,
-    stopbits = serial.STOPBITS_ONE,
-    bytesize = serial.EIGHTBITS,
-        timeout = 0)
-print("connected to: ")
-print(ser.portstr)
+ser = setupSerial()
 
-
-line = []
-val = ''
 rval = 0.0
-ival =  0
 
 sen_gain = 0.003384*25.4 # converts sensor reading to mm
 
@@ -185,26 +157,7 @@ while True:
         dist_log.append(gained_val)
 
         # ------ END OF logging code -------------------
-        ser.reset_input_buffer() ## super critical if this logger is running slower or out of sync with the sensor...
-        for c in ser.read():
-            if c == '\r':
-##                print(line)
-                line = []
-
-                try:
-                    ival = int(val)
-                except ValueError:
-                    print("value error: ", val)
-                
-##                print(val)
-##                print(ival)
-                rval = float(ival)
-##                print(rval)
-                val = ''
-                break
-            else:
-                line.append(c)
-                val = val + c
+        rval = ToughSonicRead(ser)
 
         gained_val = rval * sen_gain # sensor reading in mm
 ##        print(gained_val)

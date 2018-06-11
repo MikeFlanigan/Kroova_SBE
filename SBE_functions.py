@@ -38,3 +38,25 @@ def setupSerial():
 	print("connected to: ")
 	print(lobj.portstr)
 	return lobj
+
+def servo_parameters(S_enum):
+	# 1-HK 15138, 2-HS-815BB (ball tilt servo), 3-DS3218mg (wing)"soft" limits, 4-Moth servo
+	if S_enum == 1:
+	    ## HK 15138
+	    duty_min = 3.5 
+	    duty_max = 14.0 
+	elif S_enum == 2:
+	    ## HS-815BB (ball tilt servo)
+	    duty_min = 7.5 
+	    duty_max = 11.25 
+	elif S_enum == 3:
+	    ## DS3218mg (wing)
+	    # note these two are "soft" limits based on the wing build and desired mechanical limits
+	    duty_min = 6.0 
+	    duty_max = 11.0  
+	elif S_enum == 4:
+	    # Moth servo
+	    duty_min = 5.5
+	    duty_max = 14.0
+
+	return duty_min, duty_max

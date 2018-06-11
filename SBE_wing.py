@@ -1,8 +1,6 @@
 '''
 SBE_wing.py
 '''
-
-import serial
 import Adafruit_BBIO.PWM as PWM
 import Adafruit_BBIO.GPIO as GPIO
 import time
@@ -14,7 +12,6 @@ from SBE_functions import *
 # user settings
 debug_mode = False
 enable_output = True
-Servo_Type = 3 # enummerator for servos --- 1 = Hobby king cheap, 2 = Ball tilt, 3 = Car wing
 PC_testing = False
 
 filter_US_input = True
@@ -64,25 +61,9 @@ if not PC_testing: GPIO.setup(run_pin, GPIO.IN)
 
 
 # servo output setup
-if Servo_Type == 1:
-    ## HK 15138
-    duty_min = 3.5 
-    duty_max = 14.0 
-    servo_max = 180 # degrees
-    servo_min = 0 # degrees
-elif Servo_Type == 2:
-    ## HS-815BB (ball tilt servo)
-    duty_min = 7.5 
-    duty_max = 11.25 
-    servo_max = 180 # degrees
-    servo_min = 0 # degrees
-elif Servo_Type == 3:
-    ## DS3218mg (wing)
-    # note these two are "soft" limits based on the wing build and desired mechanical limits
-    duty_min = 6.0 
-    duty_max = 11.0  
-    servo_max = 180 # degrees # update?
-    servo_min = 0 # degrees # update?
+# 1-HK 15138, 2-HS-815BB (ball tilt servo), 3-DS3218mg (wing)"soft" limits, 4-Moth servo
+Servo_Type = 3
+duty_min, duty_max = servo_parameters(Servo_Type) # parameters for various kroova servos stored in the function
 duty_span = duty_max - duty_min
 
 if enable_output:
@@ -94,11 +75,8 @@ output_angle = 90 # initial servo output angle
 # serial input setup
 ser = setupSerial()
 
-
-line = []
-val = ''
 rval = 0.0
-ival =  0
+
 
 sen_gain = 0.003384*25.4 # converts sensor reading to mm
 

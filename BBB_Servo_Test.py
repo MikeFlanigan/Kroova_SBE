@@ -1,22 +1,11 @@
 import Adafruit_BBIO.PWM as PWM
+from SBE_functions import *
 
 servo_pin = "P8_13"
 
-Servo_Type = 3 # enummerator for servos 
-
-if Servo_Type == 1:
-    ## HK 15138
-    duty_min = 3.5 
-    duty_max = 14.0 
-elif Servo_Type == 2:
-    ## HS-815BB (ball tilt servo)
-    duty_min = 7.5 
-    duty_max = 11.25 
-elif Servo_Type == 3:
-    ## DS3218mg (wing)
-    # note these two are "soft" limits based on the wing build and desired mechanical limits
-    duty_min = 6.0 
-    duty_max = 11.0  
+# 1-HK 15138, 2-HS-815BB (ball tilt servo), 3-DS3218mg (wing)"soft" limits, 4-Moth servo
+Servo_Type = 4 # enummerator for servos 1
+duty_min, duty_max = servo_parameters(Servo_Type) # parameters for various kroova servos stored in the function
 
 duty_span = duty_max - duty_min
 
