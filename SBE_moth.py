@@ -78,13 +78,11 @@ while True:
 		# else gained val doesn't update and is equal to the last reading 
 		# --End -- Ultrasonic serial reading --------
 
-		time_check = datetime.datetime.now()
-		if (datetime.datetime.now() - parameters_check_timer).seconds > parameters_check_freq:
+		
+		if (datetime.datetime.now() - parameters_check_timer).seconds >= parameters_check_freq:
 			parameters_check_timer = datetime.datetime.now()
 			params = np.genfromtxt('SBE_control_params.csv',delimiter=",")
 			target_RH, P_gain, I_gain, D_gain, servo_control_offset, US_rolling_avg_window, US_max_thresh, US_min_thresh, servo_max, servo_min = params[1]
-
-		print((datetime.datetime.now()-time_check).microseconds)
 
 		if (datetime.datetime.now() - control_timer).microseconds >= control_freq_micros:
 			control_timer = datetime.datetime.now() # resets the timer
