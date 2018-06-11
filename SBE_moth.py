@@ -2,25 +2,30 @@
 from SBE_functions import *
 import datetime
 import Adafruit_BBIO.PWM as PWM
+import numpy as np
 
 enable_debug_print = True
 
 # ------------- CONTROL VARIABLES setup ------------
-servo_max = 107
-servo_min = 69
+params = np.genfromtxt('SBE_control_params.csv',delimiter=",")
+target_RH, P_gain, I_gain, D_gain, servo_control_offset, US_rolling_avg_window, US_max_thresh, US_min_thresh, servo_max, servo_min = params[1]
+# target RH in mm
+# P gain
+# I gain
+# D gain 
+# servo control angle offset in degrees
+# Length of rolling average window on US sensor
+# max valid mm -- based on blade rider foil and mounting setup as of 6/11/18
+# min valid mm -- based on blade rider foil and mounting setup as of 6/11/18
+# max servo angle based on mechanical limits as of 6/11/18
+# min servo angle based on mechanical limits as of 6/11/18
 
 US_input_array = []
-US_rolling_avg_window = 30
 averaged_US_input = 200 # some initial
 
-# Gains
-P_gain = -0.05
-I_gain = 0.0 # -0.0002 # decent starting parameters
-D_gain = 0.0 # -0.1 # decent starting parameters, might need stronger of all..
 
 I_max = 10 # based on full range of flap motion being ~ 25
 
-servo_control_offset = 92.0
 
 error = 0 
 last_error = 0 # for storing errors from previous loop
@@ -28,13 +33,11 @@ sum_error = 0 # integral term of error
 
 # last_derivate_error = 0
 # rolling_avg_D_errors = [0]*70 # 50 seems good 
-
-target_RH = 850 # mm
-
-US_max_thresh = 1050 # mm -- based on blade rider foil and mounting setup as of 6/11/18
-US_min_thresh = 50 # mm -- based on blade rider foil and mounting setup as of 6/11/18
 # --- End ----- CONTROL VARIABLES setup ------------
 
+# csv parameters check in 
+parameters_check_timer = datetime.datetime.now()
+parameters_check_freq = 3 # seconds not hz
 
 # ------------- Timing setup ------------
 control_freq = 100 # hz (actually means it will record a bit slower than this due to checking time without interrupts)
@@ -74,6 +77,14 @@ while True:
 			gained_val = rval * sen_gain # sensor reading in mm
 		# else gained val doesn't update and is equal to the last reading 
 		# --End -- Ultrasonic serial reading --------
+
+		time_check = datetime.datetime.now()
+		if (datetime.datetime.now() - parameters_check_timer).seconds > parameters_check_freq:
+			parameters_check_timer = datetime.datetime.now()
+			params = np.genfromtxt('SBE_control_params.csv',delimiter=",")
+			target_RH, P_gain, I_gain, D_gain, servo_control_offset, US_rolling_avg_window, US_max_thresh, US_min_thresh, servo_max, servo_min = params[1]
+
+		print((datetime.datetime.now()-time_check).microseconds)
 
 		if (datetime.datetime.now() - control_timer).microseconds >= control_freq_micros:
 			control_timer = datetime.datetime.now() # resets the timer

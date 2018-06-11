@@ -138,7 +138,7 @@ while True:
 
 
 	# -------- Ultrasonic serial reading --------
-    if enable_servo:
+	if enable_servo:
 		# -------- Ultrasonic serial reading --------
 		# reading at full speed seems to minimize error values
 		rval = ToughSonicRead(ser)
