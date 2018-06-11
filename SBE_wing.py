@@ -16,7 +16,6 @@ PC_testing = False
 
 filter_US_input = True
 US_input_array = []
-filtered_input = 0
 US_filter_size = 50
 
 # Good set of gains below
@@ -28,7 +27,6 @@ D_gain = 0.10 #
 control_aoa = 65 # aoa
 
 error = 0 # 10x the error in mm
-last_error = 0 # for storing errors from previous loop
 sum_error = 0 # integral term of error
 
 D_read_Hz = 20 # Read derivative changes at 100x per second. This can be tuned to roughly match the dynamics of the system.
@@ -126,9 +124,6 @@ while True:
 	        elif output_angle < servo_min: output_angle = servo_min
 
 	        if enable_output: print("P term:", int(P_term)," D term:",int(D_term)," I term:",int(I_term), "target angle:",int(target_aoa+90),"output angle:",int(output_angle)," error:",error," sum error: ",sum_error," target RH:",target_RH)
-
-	        # update error terms
-	        last_error = error
 
 	        if enable_output:
 	            duty = float(output_angle)
