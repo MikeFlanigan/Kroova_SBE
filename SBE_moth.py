@@ -15,8 +15,10 @@ averaged_US_input = 200 # some initial
 
 # Gains
 P_gain = -0.05
-I_gain = 0.000 
-D_gain = 0.0 
+I_gain = 0.0 # -0.0002 # decent starting parameters
+D_gain = 0.0 # -0.1 # decent starting parameters, might need stronger of all..
+
+I_max = 10 # based on full range of flap motion being ~ 25
 
 servo_control_offset = 92.0
 
@@ -86,9 +88,11 @@ while True:
 
 			P_term =  error*P_gain
 
-			if (control_servo_angle < servo_max and control_servo_angle > servo_min): sum_error = error + sum_error
+			# second part may be unnecessary thresholding, but the goal is to fix weird capsize I term skews 
+			if ((servo_min < control_servo_angle < servo_max) and (-I_max < sum_error*I_gain < I_max)): sum_error = error + sum_error
 			else: sum_error = sum_error
 			I_term = sum_error*I_gain 
+
 
 			# rolling_avg_D_errors.append(error)
 			# rolling_avg_D_errors.pop(0)
