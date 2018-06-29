@@ -1,2 +1,4 @@
-﻿Target RH,P,I ,D,Control Servo Offset,Rolling avg window,US Threshold high,US threshold low,Servo max,Servo min
-820.00,-0.05,0.00,0.00,92.00,30.00,1050.00,50.00,107.00,69.00
+Target RH	P	I 	D	Control Servo Offset	Rolling avg window	US Threshold high	US threshold low	Servo max	Servo min
+700	-0.05	-0.0002	0	92	30	1050	50	111	69
+820	-0.05	0							
+			-0.1						

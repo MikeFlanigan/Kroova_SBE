@@ -2,17 +2,19 @@
 saving_data = True
 auto_mount_usb = True
 enable_servo = True
+Simulate = False
 # -- End --- Program Mode Controls ---------------
-import Adafruit_BBIO.GPIO as GPIO
-import Adafruit_BBIO.ADC as ADC
-import Adafruit_BBIO.PWM as PWM
+if not Simulate:
+        import Adafruit_BBIO.GPIO as GPIO
+        import Adafruit_BBIO.ADC as ADC
+        import Adafruit_BBIO.PWM as PWM
 import datetime
 import numpy as np 
 import os
 import time
 from SBE_functions import *
 
-
+SimulationCheck(Simulate) # passes simulation status on to the function module
 '''
 data_row : row of data to be saved to a csv, format: 
 unix time (converted to PST tho), potentiometer [0-1.0],ultrasonic [mm],target_RH [mm],error[mm],P_term,I_term,D_term,Servo output angle [degrees]
@@ -25,17 +27,21 @@ now = datetime.datetime.now()
 
 red_pin = "P9_41"
 r_led = False
-GPIO.setup(red_pin, GPIO.OUT)
+if Simulate == False:
+    print('uo')
+    GPIO.setup(red_pin, GPIO.OUT)
 
 record_sw_pin = "P9_15"
-GPIO.setup(record_sw_pin, GPIO.IN)
+if not Simulate:
+    print('hi')
+    GPIO.setup(record_sw_pin, GPIO.IN)
 
 print("ADC setup...")
-time.sleep(15) # attempt to solve bootup problem
+if not Simulate: time.sleep(15) # attempt to solve bootup problem
 poten_pin = "P9_33"
 poten_value = 0 # input range 0 - 1.0
 try:
-	ADC.setup()
+	if not Simulate: ADC.setup()
 except:
 	e = sys.exc_info()[0]
 	print("ERROR: ",e)
@@ -63,8 +69,9 @@ control_timer = datetime.datetime.now()
 timer_program = datetime.datetime.now()
 
 # ------------- Serial reading setup ------------
-time.sleep(15) # attempt to solve bootup problem
-ser = setupSerial()
+if not Simulate:
+        time.sleep(15) # attempt to solve bootup problem
+        ser = setupSerial()
 
 sen_gain = 0.003384*25.4 # converts sensor reading to mm
 gained_val = 0.0 # sensor reading in mm
@@ -77,7 +84,7 @@ mounted_successfully = False
 unmounted_successfully = True
 failed_mount = False
 mount_timer = datetime.datetime.now()
-if auto_mount_usb and not os.path.isfile('/media/usb/important_text.txt'):
+if not Simulate and auto_mount_usb and not os.path.isfile('/media/usb/important_text.txt'):
 	mount_check = os.system('sudo mount /dev/sda1 /media/usb')
 	while True:
 		if mount_check == 0:
@@ -96,7 +103,7 @@ duty_min, duty_max = servo_parameters(Servo_Type) # parameters for various kroov
 duty_span = duty_max - duty_min
 
 servo_pin = "P8_13"
-if enable_servo: PWM.start(servo_pin, (duty_max-duty_min)/2.0+duty_min, 60)
+if not Simulate and enable_servo: PWM.start(servo_pin, (duty_max-duty_min)/2.0+duty_min, 60)
 
 control_servo_angle = 90 # initial servo output angle
 # --- End ----- Servo output setup ------------
@@ -135,193 +142,194 @@ parameters_check_timer = datetime.datetime.now()
 parameters_check_freq = 3 # seconds not hz
 
 while True:
-	# recording running switch
-	if GPIO.input(record_sw_pin): Control_ON = True
-	else: Control_ON = False
+    if Simulate: print('Running...')
+    # recording running switch
+    if not Simulate and GPIO.input(record_sw_pin): Control_ON = True
+    elif Simulate: Control_ON = True
+    else: Control_ON = False
 
-	if (datetime.datetime.now() - parameters_check_timer).seconds >= parameters_check_freq:
-			parameters_check_timer = datetime.datetime.now()
-			params = np.genfromtxt('SBE_control_params.csv',delimiter=",")
-			target_RH, P_gain, I_gain, D_gain, servo_control_offset, US_rolling_avg_window, US_max_thresh, US_min_thresh, servo_max, servo_min = params[1]
-
-
-	# -------- Ultrasonic serial reading --------
-	if enable_servo:
-		# -------- Ultrasonic serial reading --------
-		# reading at full speed seems to minimize error values
-		rval = ToughSonicRead(ser)
-		if US_min_thresh < rval*sen_gain < US_max_thresh:
-			gained_val = rval * sen_gain # sensor reading in mm
-		elif rval*sen_gain > US_max_thresh and abs(averaged_US_input-rval*sen_gain) < 200: # this allows the max thresh to be higher if the avg values are high
-			gained_val = rval * sen_gain # sensor reading in mm
-		# else gained val doesn't update and is equal to the last reading 
-	else:
-		# reading at full speed seems to minimize error values
-		rval = ToughSonicRead(ser)
-		gained_val = rval * sen_gain # sensor reading in mm
-	# --End -- Ultrasonic serial reading --------
+    if (datetime.datetime.now() - parameters_check_timer).seconds >= parameters_check_freq:
+                parameters_check_timer = datetime.datetime.now()
+                params = np.genfromtxt('SBE_control_params.csv',delimiter=",")
+                target_RH, P_gain, I_gain, D_gain, servo_control_offset, US_rolling_avg_window, US_max_thresh, US_min_thresh, servo_max, servo_min = params[1]
 
 
-	if not Control_ON:
-		## -------------- LED state indicator -----------
-		if (datetime.datetime.now() - timer_1hz).seconds >= 1:
-			timer_1hz = datetime.datetime.now() # resets the timer
-			r_led = not r_led
-		## --- End ------ LED state indicator -----------
+    # -------- Ultrasonic serial reading --------
+    # reading at full speed seems to minimize error values
+    if not Simulate: rval = ToughSonicRead(ser)
+    else: rval = SimulateToughSonic()
+    if US_min_thresh < rval*sen_gain < US_max_thresh:
+            gained_val = rval * sen_gain # sensor reading in mm
+    elif rval*sen_gain > US_max_thresh and abs(averaged_US_input-rval*sen_gain) < 200: # this allows the max thresh to be higher if the avg values are high
+            gained_val = rval * sen_gain # sensor reading in mm
+    # else gained val doesn't update and is equal to the last reading
+    else:
+        gained_val = 0 # heavy handed way of defaulting bad/weird readings to result in max lift
+    # --End -- Ultrasonic serial reading --------
 
-		# --------------- Saving csv data file ------------
-		# save any data that may have come from a stopped recording session
-		if len(data_array) > 500 and saving_data:
-			print("saving after recording stop")
-			now = datetime.datetime.now()
-			f_name = (usb_path+"Moth_Data_" + str(now.year)+"-"+str(now.month)+"-"+str(now.day)
-			         +"_"+str(now.hour)+"h"+str(now.minute)+"m"+str(now.second)+"s")
-			print(f_name)
-			data_array = np.asarray(data_array)
-			np.savetxt((f_name+".csv"),data_array,delimiter=",")
-			watch_dog_01 = datetime.datetime.now()
-			while not os.path.isfile(f_name+".csv"):
-				if (datetime.datetime.now() - watch_dog_01).seconds > 5:
-					print("ERROR in watch_dog_01")
-					watch_dog_01 = datetime.datetime.now()
-					watch_dog_01_count += 1 # increment the error flag count
-			data_array = [] # reset the data array now that it's been saved
+    if not Control_ON and not Simulate:
+            ## -------------- LED state indicator -----------
+            if (datetime.datetime.now() - timer_1hz).seconds >= 1:
+                    timer_1hz = datetime.datetime.now() # resets the timer
+                    r_led = not r_led
+            ## --- End ------ LED state indicator -----------
 
-			# ---------------- Unmounting USB drive ----------
-			mount_timer = datetime.datetime.now()
-			if auto_mount_usb and os.path.isfile('/media/usb/important_text.txt'):
-				unmounted_successfully = False
-				mount_check = os.system('sudo umount /media/usb')
-				while True:
-					if mount_check == 0:
-						unmounted_successfully = True
-						break
-					elif (datetime.datetime.now()-mount_timer).seconds > 15:
-						failed_mount = True
-						print('failed to unmount')
-						break
-			# ------ End ----- Unmounting USB drive ----------
-		# ------ End ----- Saving csv data file ------------
+            # --------------- Saving csv data file ------------
+            # save any data that may have come from a stopped recording session
+            if len(data_array) > 500 and saving_data:
+                    print("saving after recording stop")
+                    now = datetime.datetime.now()
+                    f_name = (usb_path+"Moth_Data_" + str(now.year)+"-"+str(now.month)+"-"+str(now.day)
+                             +"_"+str(now.hour)+"h"+str(now.minute)+"m"+str(now.second)+"s")
+                    print(f_name)
+                    data_array = np.asarray(data_array)
+                    np.savetxt((f_name+".csv"),data_array,delimiter=",")
+                    watch_dog_01 = datetime.datetime.now()
+                    while not os.path.isfile(f_name+".csv"):
+                            if (datetime.datetime.now() - watch_dog_01).seconds > 5:
+                                    print("ERROR in watch_dog_01")
+                                    watch_dog_01 = datetime.datetime.now()
+                                    watch_dog_01_count += 1 # increment the error flag count
+                    data_array = [] # reset the data array now that it's been saved
+
+                    # ---------------- Unmounting USB drive ----------
+                    mount_timer = datetime.datetime.now()
+                    if auto_mount_usb and os.path.isfile('/media/usb/important_text.txt'):
+                            unmounted_successfully = False
+                            mount_check = os.system('sudo umount /media/usb')
+                            while True:
+                                    if mount_check == 0:
+                                            unmounted_successfully = True
+                                            break
+                                    elif (datetime.datetime.now()-mount_timer).seconds > 15:
+                                            failed_mount = True
+                                            print('failed to unmount')
+                                            break
+                    # ------ End ----- Unmounting USB drive ----------
+            # ------ End ----- Saving csv data file ------------
 
 
 
-	elif Control_ON:
-		# ---------------- Mounting USB drive ----------
-		if auto_mount_usb and not os.path.isfile('/media/usb/important_text.txt') and not failed_mount:
-			mount_timer = datetime.datetime.now()
-			mounted_successfully = False
-			mount_check = os.system('sudo mount /dev/sda1 /media/usb')
-			while True:
-				if mount_check == 0:
-					mounted_successfully = True
-					break
-				elif (datetime.datetime.now()-mount_timer).seconds > 15: # not sure this is written correctly...
-					failed_mount = True
-					print('failed to mount')
-					break
-		# ------ End ----- Mounting USB drive ----------
+    elif Control_ON:
+        # ---------------- Mounting USB drive ----------
+        if not Simulate and auto_mount_usb and not os.path.isfile('/media/usb/important_text.txt') and not failed_mount:
+                mount_timer = datetime.datetime.now()
+                mounted_successfully = False
+                mount_check = os.system('sudo mount /dev/sda1 /media/usb')
+                while True:
+                        if mount_check == 0:
+                                mounted_successfully = True
+                                break
+                        elif (datetime.datetime.now()-mount_timer).seconds > 15: # not sure this is written correctly...
+                                failed_mount = True
+                                print('failed to mount')
+                                break
+        # ------ End ----- Mounting USB drive ----------
 
-		## -------------- LED state indicator -----------
-		if blink_count == 0 and (datetime.datetime.now() - timer_led).microseconds/1000 >= 600 :
-			timer_led = datetime.datetime.now() # resets the timer
-			blink_count += 1 
-			r_led = False 
-			
-		elif blink_count > 0 and (datetime.datetime.now() - timer_led).microseconds/1000 >= 200 :
-			timer_led = datetime.datetime.now() # resets the timer
-			blink_count += 1 
-			r_led = not r_led 
-		if blink_count >= 5: blink_count = 0
-		## --- End ------ LED state indicator -----------
+        ## -------------- LED state indicator -----------
+        if blink_count == 0 and (datetime.datetime.now() - timer_led).microseconds/1000 >= 600 :
+                timer_led = datetime.datetime.now() # resets the timer
+                blink_count += 1 
+                r_led = False 
+                
+        elif blink_count > 0 and (datetime.datetime.now() - timer_led).microseconds/1000 >= 200 :
+                timer_led = datetime.datetime.now() # resets the timer
+                blink_count += 1 
+                r_led = not r_led 
+        if blink_count >= 5: blink_count = 0
+        ## --- End ------ LED state indicator -----------
 
-		# ------------- Log and control at specified interval ----------------
-		if (datetime.datetime.now() - control_timer).microseconds >= control_freq_micros:
-			control_timer = datetime.datetime.now() # resets the timer
+        # ------------- Log and control at specified interval ----------------
+        if (datetime.datetime.now() - control_timer).microseconds >= control_freq_micros:
+                control_timer = datetime.datetime.now() # resets the timer
 
-			# ---------------- CONTROLS SECTION -----------------------------
-			US_input_array.append(gained_val)
-			if len(US_input_array) >= US_rolling_avg_window:
-				US_input_array.pop(0)
-				averaged_US_input = sum(US_input_array)/len(US_input_array)
-				gained_val =  averaged_US_input # averaged US input
+                # ---------------- CONTROLS SECTION -----------------------------
+                US_input_array.append(gained_val)
+                if len(US_input_array) >= US_rolling_avg_window:
+                        US_input_array.pop(0)
+                        averaged_US_input = sum(US_input_array)/len(US_input_array)
+                        gained_val =  averaged_US_input # averaged US input
 
-			error = int(gained_val)-target_RH
+                error = int(gained_val)-target_RH
 
-			P_term =  error*P_gain
+                P_term =  error*P_gain
 
-			# second part may be unnecessary thresholding, but the goal is to fix weird capsize I term skews 
-			if ((servo_min < control_servo_angle < servo_max) and (-I_max < sum_error*I_gain < I_max)): sum_error = error + sum_error
-			else: sum_error = sum_error
-			I_term = sum_error*I_gain 
+                # second part may be unnecessary thresholding, but the goal is to fix weird capsize I term skews 
+                if ((servo_min < control_servo_angle < servo_max) and (-I_max < sum_error*I_gain < I_max)): sum_error = error + sum_error
+                else: sum_error = sum_error
+                I_term = sum_error*I_gain 
 
-			# rolling_avg_D_errors.append(error)
-			# rolling_avg_D_errors.pop(0)
-			# D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
-			D_term = (error - last_error)*D_gain
-			# update error terms
-			last_error = error
+                # rolling_avg_D_errors.append(error)
+                # rolling_avg_D_errors.pop(0)
+                # D_term = (error - float(sum(rolling_avg_D_errors))/len(rolling_avg_D_errors))*D_gain
+                D_term = (error - last_error)*D_gain
+                # update error terms
+                last_error = error
 
-			control_servo_angle = P_term +  I_term + D_term + servo_control_offset # control equation
+                control_servo_angle = P_term +  I_term + D_term + servo_control_offset # control equation
 
-			# threshold servo commands in case of errors
-			if control_servo_angle > servo_max: control_servo_angle = servo_max
-			elif control_servo_angle < servo_min: control_servo_angle = servo_min
+                # threshold servo commands in case of errors
+                if control_servo_angle > servo_max: control_servo_angle = servo_max
+                elif control_servo_angle < servo_min: control_servo_angle = servo_min
 
-			duty = float(control_servo_angle)
-			duty = ((duty / 180) * duty_span + duty_min) 
-			if enable_servo: PWM.set_duty_cycle(servo_pin, duty)
-			# ------- END -------- CONTROLS SECTION -------------------------------
+                duty = float(control_servo_angle)
+                duty = ((duty / 180) * duty_span + duty_min) 
+                if not Simulate and enable_servo: PWM.set_duty_cycle(servo_pin, duty)
+                # ------- END -------- CONTROLS SECTION -------------------------------
 
-			# -------------------- LOGGING SECTION -------------------------------
-			data_row = []
+                # -------------------- LOGGING SECTION -------------------------------
+                data_row = []
 
-			unix_time_stamp = ((datetime.datetime.now()-epoch)-datetime.timedelta(hours=7)).total_seconds()
-			data_row.append(unix_time_stamp)
+                unix_time_stamp = ((datetime.datetime.now()-epoch)-datetime.timedelta(hours=7)).total_seconds()
+                if not Simulate:
+                        data_row.append(unix_time_stamp)
 
-			poten_value = ADC.read(poten_pin)
-			poten_value = ADC.read(poten_pin) # read twice due to possible known ADC driver bug
-			data_row.append(poten_value)
+                        poten_value = ADC.read(poten_pin)
+                        poten_value = ADC.read(poten_pin) # read twice due to possible known ADC driver bug
+                        data_row.append(poten_value)
 
-			data_row.append(gained_val)
-			# new values
-			data_row.append(target_RH)
-			data_row.append(error)
-			data_row.append(P_term)
-			data_row.append(I_term)
-			data_row.append(D_term)
-			data_row.append(control_servo_angle)
+                        data_row.append(gained_val)
+                        # new values
+                        data_row.append(target_RH)
+                        data_row.append(error)
+                        data_row.append(P_term)
+                        data_row.append(I_term)
+                        data_row.append(D_term)
+                        data_row.append(control_servo_angle)
 
-			if saving_data: data_array.append(data_row)
-			# ------- END -------- LOGGING SECTION -------------------------------
-		# ---- End ---- Sensor readings at specified interval ----------------
+                if saving_data: data_array.append(data_row)
+                # ------- END -------- LOGGING SECTION -------------------------------
+        # ---- End ---- Sensor readings at specified interval ----------------
 
-		# --------------- Saving csv data file ------------
-		# save any data that may have come from a stopped recording session
-		if len(data_array) > 200000 and saving_data: # roughly 33 minutes of data if recording at 100 hz
-			print("saving after 200000 row limit")
-			now = datetime.datetime.now()
-			f_name = (usb_path+"Moth_Data_" + str(now.year)+"-"+str(now.month)+"-"+str(now.day)
-			         +"_"+str(now.hour)+"h"+str(now.minute)+"m"+str(now.second)+"s")
-			print(f_name)
-			data_array = np.asarray(data_array)
-			np.savetxt((f_name+".csv"),data_array,delimiter=",")
-			watch_dog_01 = datetime.datetime.now()
-			while not os.path.isfile(f_name+".csv"):
-				if (datetime.datetime.now() - watch_dog_01).seconds > 5:
-					print("ERROR in watch_dog_01")
-					watch_dog_01 = datetime.datetime.now()
-					watch_dog_01_count += 1 # increment the error flag count
-			data_array = [] # reset the data array now that it's been saved
-		# ------ End ----- Saving csv data file ------------
+        # --------------- Saving csv data file ------------
+        # save any data that may have come from a stopped recording session
+        if not Simulate and len(data_array) > 200000 and saving_data: # roughly 33 minutes of data if recording at 100 hz
+                print("saving after 200000 row limit")
+                now = datetime.datetime.now()
+                f_name = (usb_path+"Moth_Data_" + str(now.year)+"-"+str(now.month)+"-"+str(now.day)
+                         +"_"+str(now.hour)+"h"+str(now.minute)+"m"+str(now.second)+"s")
+                print(f_name)
+                data_array = np.asarray(data_array)
+                np.savetxt((f_name+".csv"),data_array,delimiter=",")
+                watch_dog_01 = datetime.datetime.now()
+                while not os.path.isfile(f_name+".csv"):
+                        if (datetime.datetime.now() - watch_dog_01).seconds > 5:
+                                print("ERROR in watch_dog_01")
+                                watch_dog_01 = datetime.datetime.now()
+                                watch_dog_01_count += 1 # increment the error flag count
+                data_array = [] # reset the data array now that it's been saved
+        # ------ End ----- Saving csv data file ------------
 
 
 	# --------------- Outputs ----------------
-	if r_led: GPIO.output(red_pin,GPIO.HIGH)#print("red on")
-	else: GPIO.output(red_pin,GPIO.LOW)#print("red off")
+        if not Simulate:
+            if r_led: GPIO.output(red_pin,GPIO.HIGH)#print("red on")
+            else: GPIO.output(red_pin,GPIO.LOW)#print("red off")
 	# ------ End ---- Outputs --------------
 
 
 # clean up
-ser.close()
-PWM.stop(servo_pin)
-PWM.cleanup()
+if not Simulate:
+        ser.close()
+        PWM.stop(servo_pin)
+        PWM.cleanup()

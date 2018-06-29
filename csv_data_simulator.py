@@ -7,7 +7,7 @@ import time
 
 
 
-directory = "D:\\Dropbox\\Kroova LLC\\P105 - Moth Control System\\Testing Data\\Ultra Sonic Vs Wand 5-26-18\\Analysis"
+directory = "D:\\Dropbox\\Kroova LLC\\Projects\\P105 - Moth Control System\\Testing Data\\Log_n_Control 6-14-18"
 os.chdir(directory)
 ii = 0
 for file in glob.glob("*.csv"):
@@ -16,6 +16,7 @@ for file in glob.glob("*.csv"):
         print(fname)
         data = np.genfromtxt(fname,delimiter=",")
         print("Time: ",data[np.shape(data)[0]-1,0]-data[0,0])
+        print(np.shape(data))
 
 
         fig, ax1 = plt.subplots(figsize=(8, 4))
@@ -27,7 +28,8 @@ for file in glob.glob("*.csv"):
 
         plt.pause(0.1)
         
-        input("Press Enter to continue...")
+        msg = input("Press Enter to continue...")
+        print(msg)
         plt.close()	
         ii += 2
 
