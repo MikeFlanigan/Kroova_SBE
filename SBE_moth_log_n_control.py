@@ -28,12 +28,10 @@ now = datetime.datetime.now()
 red_pin = "P9_41"
 r_led = False
 if Simulate == False:
-    print('uo')
     GPIO.setup(red_pin, GPIO.OUT)
 
 record_sw_pin = "P9_15"
 if not Simulate:
-    print('hi')
     GPIO.setup(record_sw_pin, GPIO.IN)
 
 print("ADC setup...")
@@ -89,6 +87,7 @@ if not Simulate and auto_mount_usb and not os.path.isfile('/media/usb/important_
 	while True:
 		if mount_check == 0:
 			mounted_successfully = True
+			print('usb mounted')
 			break
 		elif (datetime.datetime.now()-mount_timer).seconds > 15:
 			print('failed to mount')
@@ -109,7 +108,8 @@ control_servo_angle = 90 # initial servo output angle
 # --- End ----- Servo output setup ------------
 
 # ------------- CONTROL VARIABLES setup ------------
-params = np.genfromtxt('SBE_control_params.csv',delimiter=",")
+path_to_params_file = '/home/debian/Desktop/Kroova_SBE/SBE_control_params.csv'
+params = np.genfromtxt(path_to_params_file,delimiter=",")
 target_RH, P_gain, I_gain, D_gain, servo_control_offset, US_rolling_avg_window, US_max_thresh, US_min_thresh, servo_max, servo_min = params[1]
 # target RH in mm
 # P gain
@@ -150,7 +150,7 @@ while True:
 
     if (datetime.datetime.now() - parameters_check_timer).seconds >= parameters_check_freq:
                 parameters_check_timer = datetime.datetime.now()
-                params = np.genfromtxt('SBE_control_params.csv',delimiter=",")
+                params = np.genfromtxt(path_to_params_file,delimiter=",")
                 target_RH, P_gain, I_gain, D_gain, servo_control_offset, US_rolling_avg_window, US_max_thresh, US_min_thresh, servo_max, servo_min = params[1]
 
 
@@ -321,11 +321,11 @@ while True:
         # ------ End ----- Saving csv data file ------------
 
 
-	# --------------- Outputs ----------------
-        if not Simulate:
-            if r_led: GPIO.output(red_pin,GPIO.HIGH)#print("red on")
-            else: GPIO.output(red_pin,GPIO.LOW)#print("red off")
-	# ------ End ---- Outputs --------------
+    # --------------- Outputs ----------------
+    if not Simulate:
+        if r_led: GPIO.output(red_pin,GPIO.HIGH)#print("red on")
+        else: GPIO.output(red_pin,GPIO.LOW)#print("red off")
+    # ------ End ---- Outputs --------------
 
 
 # clean up
