@@ -300,5 +300,5 @@ void loop(void)
   if (ALED_3) digitalWrite(ALED_3_PIN, HIGH);
   else digitalWrite(ALED_3_PIN, LOW);
 
-  delay(BNO055_SAMPLERATE_DELAY_MS);
+//  delay(BNO055_SAMPLERATE_DELAY_MS); // try straight ditching this
 }

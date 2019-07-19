@@ -51,7 +51,8 @@ debug_data_checking = False
 
 print("ADC setup...")
 # UPDATE !!!!!!!
-time.sleep(15) # attempt to solve bootup problem
+print('DEBUGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG')
+##time.sleep(15) # attempt to solve bootup problem
 poten_pin = "P9_40"
 poten_value = 0 # input range 0 - 1.0
 try: ADC.setup()
@@ -65,7 +66,7 @@ except:
 	
 UART.setup("UART1") # RX P9_26 TX P9_24
 ##ser = serial.Serial(port = "/dev/ttyO1", baudrate=9600)
-ser = serial.Serial(port = "/dev/ttyO1", baudrate=115200)
+ser = serial.Serial(port = "/dev/ttyO1", baudrate=115200, timeout = 0.0005)
 buffer = ""
 US_dist = 0
 
@@ -80,10 +81,17 @@ last_seconds = 0
 rec_blink_count = 0
 
 time_stop = False
+
+timer_recording = datetime.datetime.now()
 # ------------------ Function nn def ----------------------
 
 # ------ End of ---- Function nn def ----------------------
-            
+speed_check = datetime.datetime.now()
+
+GPS_spd = 0.0
+IMU_RH_acc_unb = 0.0
+Heel = 0.0
+Pitch = 0.0
 try:
     while True:
         now = datetime.datetime.now()
@@ -113,10 +121,11 @@ try:
             timer_recording = datetime.datetime.now()
             
         if BB_SW1 and not Recording and not time_stop: Recording = True
-            
+
         # always listening for US data from the Arduino
         oneByte = ser.read(1)
         if oneByte == b"\r":
+            
             buffer = "".join(buffer.splitlines())
             
 ##            GPS_hr, GPS_min, GPS_sec, GPS_spd, GPS_lat, GPS_lon, US_dist, RHA, IMU_RH_offset, IMU_RH_acc, Heel, Pitch = buffer.split(",")
@@ -125,16 +134,18 @@ try:
             
             GPS_spd, US_dist, IMU_RH_acc_unb, Heel, Pitch = buffer.split(",")
 ##            print(GPS_spd, US_dist, IMU_RH_acc_unb, Heel, Pitch)
-            
+
+##            speed_check = datetime.datetime.now()
             buffer = ""
-            ser.reset_input_buffer()
+            ser.reset_input_buffer() # maybe return to greatness
+##            print(US_dist,' ','elapsed: ', (datetime.datetime.now() - speed_check).microseconds)
+
         else:
             try:
                 buffer += oneByte.decode("ascii")
             except UnicodeDecodeError as e:
                 ascii_err_count += 1 # figure out how often this is happening
                 print('UnicodeDecodeError: ',e)
-        
 
         # always reading the potentiometer value
         poten_value = ADC.read(poten_pin)
@@ -164,7 +175,6 @@ try:
                 except ValueError: print('heel WRONG TYPE!!')
                 try:data_row.append(float(Pitch))
                 except ValueError: print('pitch WRONG TYPE!!')
-
                 data_array.append(data_row)
                 
                     
@@ -220,8 +230,9 @@ try:
         if BB_LED2: GPIO.output(BB_LED2_Pin,GPIO.HIGH)
         else: GPIO.output(BB_LED2_Pin,GPIO.LOW)
         # ------ End of ---- BeagleBone Outputs ----------------------
-            
-        time.sleep(0.001) # rest the loop 1 millisecond.... is this bad or good practice?
+
+        # try straight ditching this
+##        time.sleep(0.001) # rest the loop 1 millisecond.... is this bad or good practice? 
         
 except KeyboardInterrupt:
     print('keyboard interrupt')
