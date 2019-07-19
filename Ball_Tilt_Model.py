@@ -13,13 +13,12 @@ ramp_angle = 0 # radians
 g = 9.82 # m/s^2
 
 
-
-
-def init_ball_phsyics_sim(ball_pos_init, servo_angle)
+def init_ball_physics_sim(ball_pos_init, servo_angle):
 	global ball_pos
 	ball_pos = ball_pos_init
 
-def ball_physics_update(servo_angle, time_delta)
+
+def ball_physics_update(servo_angle, time_delta):
 	global ball_pos
 
 	# calculate how far the ball moved based on last constant speed time step
