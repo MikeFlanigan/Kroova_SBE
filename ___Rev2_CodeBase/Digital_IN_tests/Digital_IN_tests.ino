@@ -43,15 +43,16 @@ int A_DIState = 0;
 int AutoMan_DIState = 0;
 
 void setup() {
-  pinMode(stand_LED_PIN, OUTPUT);
-  pinMode(ALED_1_PIN, OUTPUT);
-  pinMode(ALED_2_PIN, OUTPUT);
-  pinMode(ALED_3_PIN, OUTPUT);
+  //  pinMode(stand_LED_PIN, OUTPUT);
+  //  pinMode(ALED_1_PIN, OUTPUT);
+  //  pinMode(ALED_2_PIN, OUTPUT);
+  //  pinMode(ALED_3_PIN, OUTPUT);
 
   pinMode(BB_DIpin1, INPUT);
   pinMode(BB_DIpin2, INPUT);
   pinMode(A_DIpin, INPUT);
   pinMode(AutoMan_DIpin, INPUT);
+  Serial.begin(9600);
 }
 
 void loop() {
@@ -61,26 +62,34 @@ void loop() {
   A_DIState = digitalRead(A_DIpin);
   AutoMan_DIState = digitalRead(AutoMan_DIpin);
 
+  Serial.print(BB_DIState1);
+  Serial.print(" ");
+  Serial.print(BB_DIState2);
+  Serial.print(" ");
+  Serial.print(A_DIState);
+  Serial.print(" ");
+  Serial.println(AutoMan_DIState);
+
   // check if the pushbutton is pressed.
   // if it is, the buttonState is HIGH:
-  if (BB_DIState1 == HIGH) {
-    digitalWrite(stand_LED_PIN, HIGH);
-  } else {
-    digitalWrite(stand_LED_PIN, LOW);
-  }
-  if (BB_DIState2 == HIGH) {
-    digitalWrite(ALED_1_PIN, HIGH);
-  } else {
-    digitalWrite(ALED_1_PIN, LOW);
-  }
-  if (A_DIState == HIGH) {
-    digitalWrite(ALED_2_PIN, HIGH);
-  } else {
-    digitalWrite(ALED_2_PIN, LOW);
-  }
-  if (AutoMan_DIState == HIGH) {
-    digitalWrite(ALED_3_PIN, HIGH);
-  } else {
-    digitalWrite(ALED_3_PIN, LOW);
-  }
+  //  if (BB_DIState1 == HIGH) {
+  //    digitalWrite(stand_LED_PIN, HIGH);
+  //  } else {
+  //    digitalWrite(stand_LED_PIN, LOW);
+  //  }
+  //  if (BB_DIState2 == HIGH) {
+  //    digitalWrite(ALED_1_PIN, HIGH);
+  //  } else {
+  //    digitalWrite(ALED_1_PIN, LOW);
+  //  }
+  //  if (A_DIState == HIGH) {
+  //    digitalWrite(ALED_2_PIN, HIGH);
+  //  } else {
+  //    digitalWrite(ALED_2_PIN, LOW);
+  //  }
+  //  if (AutoMan_DIState == HIGH) {
+  //    digitalWrite(ALED_3_PIN, HIGH);
+  //  } else {
+  //    digitalWrite(ALED_3_PIN, LOW);
+  //  }
 }

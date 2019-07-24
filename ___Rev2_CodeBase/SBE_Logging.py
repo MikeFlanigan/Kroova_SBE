@@ -51,8 +51,8 @@ debug_data_checking = False
 
 print("ADC setup...")
 # UPDATE !!!!!!!
-print('DEBUGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG')
-##time.sleep(15) # attempt to solve bootup problem
+##print('DEBUGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG')
+time.sleep(15) # attempt to solve bootup problem
 poten_pin = "P9_40"
 poten_value = 0 # input range 0 - 1.0
 try: ADC.setup()
@@ -92,6 +92,8 @@ GPS_spd = 0.0
 IMU_RH_acc_unb = 0.0
 Heel = 0.0
 Pitch = 0.0
+ctrl_input = 0 # int
+flap_cmd_percent = 0.0 # float
 try:
     while True:
         now = datetime.datetime.now()
@@ -113,9 +115,14 @@ try:
         # ------ End of ---- 10 Hz timer ----------------------
         
         # ------------------ Collect Data ----------------------
-        if GPIO.input(BB_SW1_Pin): BB_SW1 = True     
+        if GPIO.input(BB_SW1_Pin):
+            if not BB_SW1 and debounce: BB_SW1 = True
+            elif BB_SW1 and debounce: BB_SW1 = False
+            debounce = False
         else:
-            BB_SW1 = False
+            debounce = True
+            
+        if not BB_SW1:
             Recording = False
             time_stop = False
             timer_recording = datetime.datetime.now()
@@ -132,7 +139,7 @@ try:
 ##            print(GPS_hr, GPS_min, GPS_sec, GPS_spd, GPS_lat, GPS_lon, US_dist, RHA, IMU_RH_offset, IMU_RH_acc, Heel, Pitch)
 ##            print(US_dist,' ',RHA)
             
-            GPS_spd, US_dist, IMU_RH_acc_unb, Heel, Pitch = buffer.split(",")
+            ctrl_input, flap_cmd_percent, GPS_spd, US_dist, IMU_RH_acc_unb, Heel, Pitch = buffer.split(",")
 ##            print(GPS_spd, US_dist, IMU_RH_acc_unb, Heel, Pitch)
 
 ##            speed_check = datetime.datetime.now()
@@ -154,7 +161,7 @@ try:
         # if recording -----------
         if Recording:
             if record_edge != Recording:
-                mount_usb()
+                mount_usb() # nothing to indicate failed mount here...
                 record_edge = Recording
             
             if (now - timer_log).microseconds/1000 >= log_per:
@@ -164,7 +171,11 @@ try:
                 data_row = []
                 data_row.append(now.microsecond) 
                 data_row.append(poten_value)
-                
+
+                try: data_row.append(int(ctrl_input))
+                except ValueError: print('ctrl input WRONG TYPE!!')
+                try:data_row.append(float(flap_cmd_percent))
+                except ValueError: print('flap percent WRONG TYPE!!')             
                 try: data_row.append(int(US_dist))
                 except ValueError: print('US_ dist WRONG TYPE!!')
                 try:data_row.append(float(GPS_spd))
