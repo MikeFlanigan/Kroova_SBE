@@ -15,6 +15,7 @@ int inByte = 0;
 const int ALED_1_PIN = 44;
 const int ALED_2_PIN = 45;
 const int ALED_3_PIN = 46;
+const int BB_DIpin2 = 25;
 
 bool ALED_1;
 bool ALED_2;
@@ -41,6 +42,9 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
 
 #define MOTHMIN 175 // temp
 #define MOTHMAX 435 // temp
+
+const int servo_middle = 305;
+bool servo_enabled = false;
 
 float flap_percent = 0.5; // command range between 0.0 and 1.0
 uint16_t flap_cmd_pulse = 300; // set this to mid range
@@ -86,6 +90,7 @@ void setup(void)
   pinMode(ALED_2_PIN, OUTPUT);
   pinMode(ALED_3_PIN, OUTPUT);
   pinMode(switch1_PIN, INPUT_PULLUP);
+  pinMode(BB_DIpin2, INPUT);
 
   Serial.begin(115200); // console debugging
   Serial1.begin(115200); // BeagleBone comms !!!!!!!!!!!!! should this be at 115200?
@@ -157,6 +162,7 @@ void loop(void)
   switch1 = not digitalRead(switch1_PIN);
   RHA = analogRead(RHA_Pin);
   RH_setP = RH_init - map(RHA, 140, 600, 0, 1000);
+  servo_enabled = digitalRead(BB_DIpin2);
 
   if (GPS.newNMEAreceived()) {
     Lat = GPS.latitudeDegrees;
@@ -214,7 +220,6 @@ void loop(void)
         LED1_millis = now_millis;
         ALED_1 = not ALED_1;
         ALED_2 = not ALED_2;
-        ALED_3 = not ALED_3;
       }
       IMU_bias_millis = millis();
     }
@@ -223,7 +228,6 @@ void loop(void)
         LED1_millis = now_millis;
         ALED_1 = not ALED_1;
         ALED_2 = not ALED_2;
-        ALED_3 = not ALED_3;
       }
       Serial.print(" Collecting offset data... ");
       if (now_millis - IMU_bias_millis < 45000 ) { // 60 second initialization period
@@ -232,6 +236,7 @@ void loop(void)
       else { // bias offset collection finished
         IMU_biased = 2;
         LED1_millis = now_millis;
+        ALED_1 = false;
         ALED_2 = false;
       }
 
@@ -243,45 +248,6 @@ void loop(void)
     Serial.println(IMU_RH_offset);
   }
 
-  //    if (not one_shot && not switch1) {
-  //      ALED_1 = false; ALED_2 = false; ALED_3 = false;
-  //      one_shot = true;
-  //    }
-  //    else {
-  //      if ((not switch1 && now_millis - LED1_millis > 2000) || (switch1 && now_millis - LED1_millis > 500)) {
-  //        LED1_millis = now_millis;
-  //        ALED_1 = not ALED_1;
-  //        ALED_2 = not ALED_2;
-  //        ALED_3 = not ALED_3;
-  //      }
-  //      if (switch1) {
-  //        Serial.print(" Collecting offset data... ");
-  //        if (now_millis - IMU_bias_millis < 45000 ) { // 60 second initialization period
-  //          IMU_RH_offset = IMU_RH_offset * (1 - IMU_bias_avg_weight) + IMU_bias_avg_weight * vaccel.z() ; // very slow smoothing
-  //        }
-  //        else { // bias offset collection finished
-  //          IMU_biased = 1;
-  //          if (now_millis - LED1_millis > 150) {
-  //            LED1_millis = now_millis;
-  //            ALED_1 = not ALED_1; ALED_2 = not ALED_2; ALED_3 = not ALED_3;
-  //          }
-  //        }
-  //      }
-  //      else {
-  //        IMU_bias_millis = now_millis; // bias collection switch hasn't been pressed yet
-  //        if (IMU_biased == 1) {
-  //          IMU_biased = 2; // finished
-  //          Serial.println("calibration finished");
-  //          ALED_2 = false;
-  //        }
-  //      }
-  //      Serial.print(vaccel.z());
-  //      Serial.print(" ");
-  //      Serial.print(now_millis - IMU_bias_millis);
-  //      Serial.print(" ");
-  //      Serial.println(IMU_RH_offset);
-  //    }
-  //  }
   else { // system is done with calibration
     if ((system == 3 || system == 2) && now_millis - LED1_millis > 1000) { // IMU good indicator
       LED1_millis = now_millis;
@@ -295,7 +261,7 @@ void loop(void)
   }
 
   if (GPS.fix) {
-    if (IMU_biased > 2) {
+    if (IMU_cal) {
       if (now_millis - LED3_millis > 1000) { // GPS good indicator
         LED3_millis = now_millis;
         ALED_3 = not ALED_3;
@@ -313,7 +279,10 @@ void loop(void)
       //      Serial.print(" ");
       //      Serial.print(GPS.longitudeDegrees);
     }
-    else {
+
+  }
+  else {
+    if (IMU_cal) {
       if (now_millis - LED3_millis > 200) { // GPS error indicator
         LED3_millis = now_millis;
         ALED_3 = not ALED_3;
@@ -321,6 +290,7 @@ void loop(void)
     }
     Serial.print(" No GPS fix ");
   }
+
 
 
   if (Serial3.available()) {
@@ -335,54 +305,37 @@ void loop(void)
   delta_t = millis() - loop_t;
   loop_t = millis();
 
-  // sloppy programming, clean up later
   last_ctrl_signal = ctrl_signal;
-  if (US_dist < 10 && counterr < 3) {
-    if (500 < last_ctrl_signal < 1300) {
-      ctrl_signal = last_ctrl_signal;
-    }
-    else {
-      ctrl_signal = 1000;
-    }
-    counterr ++;
-  }
-  else if (US_dist - ctrl_signal > 300 && counterr < 3) {
-    if (500 < last_ctrl_signal < 1300) {
-      ctrl_signal = last_ctrl_signal;
-    }
-    else {
-      ctrl_signal = 1000;
-    }
-    counterr ++;
-  }
-  else if (ctrl_signal - US_dist > 900 && counterr < 3) {
-    if (500 < last_ctrl_signal && last_ctrl_signal < 1300) {
-      ctrl_signal = last_ctrl_signal;
-    }
-    else {
-      ctrl_signal = 1000;
-    }
-    counterr ++;
+  if (US_dist < 10) {
+    ctrl_signal = last_ctrl_signal;
   }
   else {
     ctrl_signal = US_dist;
-    counterr = 0;
   }
 
   err = RH_setP - ctrl_signal;
-  flap_percent = 1 * P * err;
-  flap_cmd_pulse = flap_percent * (MOTHMAX - MOTHMIN) + MOTHMIN;
-  flap_cmd_pulse = map(flap_cmd_pulse, MOTHMIN, MOTHMAX, MOTHMAX, MOTHMIN);
-  if (SERVOMIN < flap_cmd_pulse && flap_cmd_pulse < SERVOMAX) {
-    Serial.print(" US dist: ");
-    Serial.print(US_dist);
-    Serial.print(" ctrl sig: ");
-    Serial.print(ctrl_signal);
-    Serial.print(" flap percent: ");
-    Serial.print(flap_percent);
-    Serial.print(" flap command pulse: ");
-    Serial.print(flap_cmd_pulse);
+  flap_percent = 1 * P * err + 0.2; // add bias to account for neutral lift offset
 
+  if (servo_enabled) {
+    flap_cmd_pulse = flap_percent * (MOTHMAX - MOTHMIN) + MOTHMIN;
+    flap_cmd_pulse = map(flap_cmd_pulse, MOTHMIN, MOTHMAX, MOTHMAX, MOTHMIN);
+  }
+  else {
+    flap_cmd_pulse = servo_middle;
+  }
+  if (SERVOMIN < flap_cmd_pulse && flap_cmd_pulse < SERVOMAX) {
+    // debugging
+    Serial.print(" dt: ");
+    Serial.println(delta_t);
+//    Serial.print(" US dist: ");
+//    Serial.print(US_dist);
+//    Serial.print(" ctrl sig: ");
+//    Serial.print(ctrl_signal);
+//    Serial.print(" flap percent: ");
+//    Serial.print(flap_percent);
+//    Serial.print(" flap command pulse: ");
+//    Serial.print(flap_cmd_pulse);
+    // end of debugging
     pwm.setPWM(servonum, 0, flap_cmd_pulse);
   }
   // end control --------------

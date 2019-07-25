@@ -13,11 +13,20 @@ from SBE_funcs import *
 
 BB_SW1_Pin = "P8_8" # start stop recording
 BB_SW1 = False
+last_BB_SW1 = False
 GPIO.setup(BB_SW1_Pin, GPIO.IN)
 
+BB_DO2_Pin = "P9_27"
+BB_DO2 = False
+GPIO.setup(BB_DO2_Pin, GPIO.OUT)
+
+servo_enable = False
+servo_enable_timer = datetime.datetime.now()
+servo_enable_dur = 2 # seconds
+
 BB_LED1_Pin = "P8_14" # indicates logging is running 
-BB_LED2_Pin = "P8_16"
-BB_LED3_Pin = "P8_18"
+BB_LED2_Pin = "P8_16" 
+BB_LED3_Pin = "P8_18" # indicates servo enabled/disabled
 
 BB_LED1 = False # indicates logging is running 
 BB_LED2 = False
@@ -38,6 +47,7 @@ Hz_10 = False
 
 Recording = False  
 record_edge = False
+mounted = False
 
 session_minutes = 3.5 # minutes
 record_sesh_length = 60*session_minutes # seconds
@@ -65,7 +75,6 @@ except:
     ADC.setup()
 	
 UART.setup("UART1") # RX P9_26 TX P9_24
-##ser = serial.Serial(port = "/dev/ttyO1", baudrate=9600)
 ser = serial.Serial(port = "/dev/ttyO1", baudrate=115200, timeout = 0.0005)
 buffer = ""
 US_dist = 0
@@ -115,20 +124,20 @@ try:
         # ------ End of ---- 10 Hz timer ----------------------
         
         # ------------------ Collect Data ----------------------
-        if GPIO.input(BB_SW1_Pin):
-            if not BB_SW1 and debounce: BB_SW1 = True
-            elif BB_SW1 and debounce: BB_SW1 = False
-            debounce = False
-        else:
-            debounce = True
-            
+        # --------- trigger recording and servo power -- 
+        BB_SW1 = GPIO.input(BB_SW1_Pin)
+        if last_BB_SW1 and not BB_SW1: # only true on a Falling Edge
+            if (now-servo_enable_timer).seconds + 0.1 < servo_enable_dur:
+                Recording = not Recording
+            else:
+                servo_enable = not servo_enable
+                
         if not BB_SW1:
-            Recording = False
-            time_stop = False
-            timer_recording = datetime.datetime.now()
-            
-        if BB_SW1 and not Recording and not time_stop: Recording = True
+            servo_enable_timer = now # reset the timer
 
+        last_BB_SW1 = BB_SW1
+        # -- end of trigger recording and servo power --
+        
         # always listening for US data from the Arduino
         oneByte = ser.read(1)
         if oneByte == b"\r":
@@ -161,8 +170,11 @@ try:
         # if recording -----------
         if Recording:
             if record_edge != Recording:
-                mount_usb() # nothing to indicate failed mount here...
-                record_edge = Recording
+                mounted = mount_usb() # nothing to indicate failed mount here...
+                if mounted: record_edge = Recording
+                else: Recording = False
+                
+        if Recording:
             
             if (now - timer_log).microseconds/1000 >= log_per:
                 timer_log = now
@@ -200,7 +212,8 @@ try:
             us_str = " US dist: " + str(US_dist).rjust(6)
             poten_str = " poten: " + str(np.round(poten_value,4)).rjust(6)
 ##            GPS_spd, US_dist, IMU_RH_acc_unb, Heel, Pitch
-            print( ts_str + us_str + poten_str)
+##            print( ts_str + us_str + poten_str)
+            print("Recording: ", Recording," Servo: ",servo_enable)
 
         if not Recording:
             timer_recording = datetime.datetime.now()
@@ -215,11 +228,11 @@ try:
                 data_array = []
 
                 if os.path.isfile(f_name+".csv"):
-                    unmount_usb()
+                    mounted = not unmount_usb()
                 else:
                     print('pause for file save...')
                     time.sleep(1)
-                    unmount_usb()
+                    mounted = not unmount_usb()
 
 
         # ------------------ LED States ----------------------
@@ -233,6 +246,13 @@ try:
             if Hz_1: BB_LED2 = not BB_LED2
             BB_LED1 = False
         else: BB_LED2 = False
+
+        if servo_enable:
+            BB_DO2 = True
+            BB_LED3 = True
+        else:
+            BB_DO2 = False
+            BB_LED3 = False
         # ------ End of ---- LED States ----------------------
         
         # ------------------ BeagleBone Outputs ----------------------
@@ -240,6 +260,10 @@ try:
         else: GPIO.output(BB_LED1_Pin,GPIO.LOW)
         if BB_LED2: GPIO.output(BB_LED2_Pin,GPIO.HIGH)
         else: GPIO.output(BB_LED2_Pin,GPIO.LOW)
+        if BB_LED3: GPIO.output(BB_LED3_Pin,GPIO.HIGH)
+        else: GPIO.output(BB_LED3_Pin,GPIO.LOW)
+        if BB_DO2: GPIO.output(BB_DO2_Pin,GPIO.HIGH)
+        else: GPIO.output(BB_DO2_Pin,GPIO.LOW)
         # ------ End of ---- BeagleBone Outputs ----------------------
 
         # try straight ditching this

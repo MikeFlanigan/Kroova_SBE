@@ -20,8 +20,10 @@ def mount_usb():
             elif (datetime.datetime.now()-mount_timer).seconds > 15:
                 print('failed to mount')
                 failed_mount = True
+                mounted_successfully = False
                 break
     elif os.path.isfile('/media/usb/important_text.txt'): print('usb already mounted')
+    return mounted_successfully
 
 def unmount_usb():
     mount_timer = datetime.datetime.now()
@@ -35,6 +37,9 @@ def unmount_usb():
                 break
             elif (datetime.datetime.now()-mount_timer).seconds > 15:
                 failed_mount = True
+                unmounted_successfully = False
                 print('failed to unmount')
                 break
     elif not os.path.isfile('/media/usb/important_text.txt'): print('usb already unmounted')
+    return unmounted_successfully
+    

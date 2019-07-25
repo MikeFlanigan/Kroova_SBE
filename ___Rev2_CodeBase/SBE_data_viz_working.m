@@ -11,8 +11,8 @@ clear; clc; close all
 % day three, successful foiling
 % data = csvread("data/7-21/Moth_Data_2000-1-1_0h23m11s.csv"); 
 % data = csvread("data/7-21/Moth_Data_2000-1-1_0h40m28s.csv"); 
-data = csvread("data/7-21/Moth_Data_2000-1-1_0h44m3s.csv");
-% data = csvread("data/7-21/Moth_Data_2000-1-1_0h48m11s.csv"); 
+% data = csvread("data/7-21/Moth_Data_2000-1-1_0h44m3s.csv");
+data = csvread("data/7-21/Moth_Data_2000-1-1_0h48m11s.csv"); 
 
 % data =      data(5:end,:); % truncate initial data
 
@@ -241,3 +241,9 @@ legend('pos','vel','acc','US RH')
 % 
 % figure()
 % histogram(logdt)
+
+
+%% looking at flap percentage
+figure()
+plot(t,flap_perc)
+ylim([0,1])
