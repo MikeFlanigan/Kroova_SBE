@@ -4,6 +4,35 @@
 #include <utility/imumaths.h>
 #include <Adafruit_GPS.h>
 #include <Adafruit_PWMServoDriver.h>
+#include <MatrixMath.h>
+
+
+// --------------- Kalman Filter setup ---------------
+bool first_loop_flag = true;
+
+mtx_type I[3][3]; // 3x3 identity
+mtx_type F[3][3]; // state transition matrix
+mtx_type Ftr[3][3]; // state transition matrix transposed
+mtx_type H[2][3]; // measurement matrix
+mtx_type Htr[3][2]; // measurement matrix
+mtx_type Qkf[3][3]; // process noise matrix
+mtx_type R[2][2]; // measurement noise matrix
+mtx_type P[3][3]; // covarience matrix
+mtx_type P_t1[3][3];
+mtx_type P_minus[3][3]; // predicted covariance matrix
+mtx_type P_minus_t1[3][3];
+mtx_type x[3][1]; // state vector
+mtx_type x_minus[3][1]; // predicted state vector
+mtx_type x_t21[2][1];
+mtx_type x_2t21[2][1];
+mtx_type xtemp[3][1];
+mtx_type K[3][2]; // kalman gain
+mtx_type K_num[3][2]; // kalman gain temp numerator
+mtx_type Ktemp23[2][3];
+mtx_type Kden[2][2];
+mtx_type Kden_t1[2][2];
+mtx_type y[2][1]; // measurement vector
+// ----- End of -- Kalman Filter setup ----------------
 
 unsigned long now_millis = millis();
 unsigned long delay_timer = millis();
@@ -51,7 +80,8 @@ uint16_t flap_cmd_pulse = 300; // set this to mid range
 uint8_t servonum = 8;
 unsigned long loop_t = millis();
 int delta_t = 0;
-float P = 0.001;
+float dt = 0.0; // decimal seconds
+float P_gain = 0.001;
 int err = 0; // error in mm
 int ctrl_signal = 650; // defaulting
 int last_ctrl_signal = 650;
@@ -71,6 +101,8 @@ unsigned long IMU_bias_millis = millis();
 float IMU_RH_offset = 0.0;
 
 bool one_shot = false;
+
+float Heave_acc = 0.0;
 // ----- End of -- IMU setup ----------------
 
 // --------------- GPS setup ---------------
@@ -104,6 +136,38 @@ void setup(void)
     Serial.print("Ooops, no BNO055 detected ... Check your wiring or I2C ADDR!");
     while (1);
   }
+
+  // --------------- Kalman Filter init ---------------
+  for (int i = 0; i < 3; i++) { // rows
+    for (int j = 0; j < 3; j++) { // cols
+      // ------- init I
+      if (i == j) I[i][j] = 1.0f;
+      else I[i][j] = 0.0f;
+      // ------- init H
+      if (i < 2) {
+        if (i == 0 && j == 0) H[i][j] = 1.0f;
+        else if (i == 1 && j == 2) H[i][j] = 1.0f;
+        else H[i][j] = 0.0f;
+      }
+      // ------- init Qkf and R
+      if (i == j) {
+        if (i == 0) {
+          Qkf[i][j] = 0.1f;
+          R[i][j] = 0.1f;
+        }
+        else if (i == 1) {
+          Qkf[i][j] = 0.01f;
+          R[i][j] = 0.01f;
+        }
+        else if (i == 2) Qkf[i][j] = 0.01f;
+      }
+      else {
+        if (i < 2) R[i][j] = 0.0f;
+        Qkf[i][j] = 0.0f;
+      }
+    }
+  }
+  // ----- End of -- Kalman Filter init ----------------
 
   pwm.begin();
   pwm.setPWMFreq(60);
@@ -177,6 +241,8 @@ void loop(void)
 
   bno.getCalibration(&system, &gyro, &accel, &mag);
 
+  //  IMU_cal = true; // debugFLAG DEBUGGINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+  //  IMU_biased = 3; // debugFLAG DEBUGGINGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGG
   if (not IMU_cal) { // initial IMU calibration
     if (gyro < 3 || accel < 3 || mag < 3) {
       if (now_millis - LED1_millis > 1000 / (4 - accel)) {
@@ -197,20 +263,20 @@ void loop(void)
     }
     else { // accel gyro and mag ready
       if (system == 3 || system == 2) IMU_cal = true;
-      else Serial.print("sensors calibrated, but not system... rare");
+      //      else Serial.print("sensors calibrated, but not system... rare");
       ALED_1 = false;
       ALED_2 = false;
       ALED_3 = false;
     }
     // temp for debugging
-    Serial.print("CALIBRATION: Sys=");
-    Serial.print(system, DEC);
-    Serial.print(" Gyro=");
-    Serial.print(gyro, DEC);
-    Serial.print(" Accel=");
-    Serial.print(accel, DEC);
-    Serial.print(" Mag=");
-    Serial.println(mag, DEC);
+    //    Serial.print("CALIBRATION: Sys=");
+    //    Serial.print(system, DEC);
+    //    Serial.print(" Gyro=");
+    //    Serial.print(gyro, DEC);
+    //    Serial.print(" Accel=");
+    //    Serial.print(accel, DEC);
+    //    Serial.print(" Mag=");
+    //    Serial.println(mag, DEC);
 
     delay_timer = millis();
   }
@@ -229,7 +295,7 @@ void loop(void)
         ALED_1 = not ALED_1;
         ALED_2 = not ALED_2;
       }
-      Serial.print(" Collecting offset data... ");
+      //      Serial.print(" Collecting offset data... ");
       if (now_millis - IMU_bias_millis < 45000 ) { // 60 second initialization period
         IMU_RH_offset = IMU_RH_offset * (1 - IMU_bias_avg_weight) + IMU_bias_avg_weight * vaccel.z() ; // very slow smoothing
       }
@@ -241,11 +307,11 @@ void loop(void)
       }
 
     }
-    Serial.print(vaccel.z());
-    Serial.print(" ");
-    Serial.print(now_millis - IMU_bias_millis);
-    Serial.print(" ");
-    Serial.println(IMU_RH_offset);
+    //    Serial.print(vaccel.z());
+    //    Serial.print(" ");
+    //    Serial.print(now_millis - IMU_bias_millis);
+    //    Serial.print(" ");
+    //    Serial.println(IMU_RH_offset);
   }
 
   else { // system is done with calibration
@@ -256,7 +322,7 @@ void loop(void)
     else if (system < 2 && (now_millis - LED1_millis > 200)) { // IMU error indicator
       LED1_millis = now_millis;
       ALED_1 = not ALED_1;
-      Serial.print(" IMU out of cal ");
+      //      Serial.print(" IMU out of cal "); // DEBUGGGGGGGINGGGGGGGGGGGGGGGGGGGGGGGGG
     }
   }
 
@@ -288,7 +354,7 @@ void loop(void)
         ALED_3 = not ALED_3;
       }
     }
-    Serial.print(" No GPS fix ");
+    //    Serial.print(" No GPS fix ");
   }
 
 
@@ -303,6 +369,7 @@ void loop(void)
 
   // --------------- control ----
   delta_t = millis() - loop_t;
+  dt = (float) delta_t / 1000;
   loop_t = millis();
 
   last_ctrl_signal = ctrl_signal;
@@ -313,28 +380,91 @@ void loop(void)
     ctrl_signal = US_dist;
   }
 
+  Heave_acc = vaccel.z() - IMU_RH_offset;
+
+  // ------------ Kalman Filter calcs ------------
+  if (first_loop_flag) { // collect data and initialize KF variables
+    first_loop_flag = false;
+    x[0][0] = ctrl_signal;
+    x[1][0] = 0.0f;
+    x[2][0] = Heave_acc;
+  }
+  else { // variables have been initialized on the first loop
+    // recompute F since it's time dependent
+    for (int i = 0; i < 3; i++) { // rows
+      for (int j = 0; j < 3; j++) { // cols
+        if (i == j) F[i][j] = 1.0f;
+        else if (i > j) F[i][j] = 0.0f;
+        else if (i == 2 && j == 2) F[i][j] = 0.5 * dt * dt;
+        else if (j > 0 && i < j) F[i][j] = dt;
+      }
+    }
+
+    // Perform prediction step
+    Matrix.Multiply((mtx_type*)F, (mtx_type*)x, 3, 3, 1, (mtx_type*)x_minus);
+
+    Matrix.Transpose((mtx_type*)F, 3, 3, (mtx_type*)Ftr);
+    Matrix.Multiply((mtx_type*)F, (mtx_type*)P, 3, 3, 3, (mtx_type*)P_minus);
+    Matrix.Multiply((mtx_type*)P_minus, (mtx_type*)Ftr, 3, 3, 3, (mtx_type*)P_minus_t1);
+    Matrix.Add((mtx_type*)P_minus_t1, (mtx_type*)Qkf, 3, 3, (mtx_type*)P_minus);
+
+    // Compute Kalman gain
+    Matrix.Transpose((mtx_type*)H, 2, 3, (mtx_type*)Htr);
+    Matrix.Multiply((mtx_type*)P_minus, (mtx_type*)Htr, 3, 3, 2, (mtx_type*)K_num);
+    Matrix.Multiply((mtx_type*)H, (mtx_type*)P_minus, 2, 3, 3, (mtx_type*)Ktemp23);
+    Matrix.Multiply((mtx_type*)Ktemp23, (mtx_type*)Htr, 2, 3, 2, (mtx_type*)Kden_t1);
+    Matrix.Add((mtx_type*)Kden_t1, (mtx_type*)R, 2, 2, (mtx_type*)Kden);
+    Matrix.Invert((mtx_type*)Kden, 2);
+    Matrix.Multiply((mtx_type*)K_num, (mtx_type*)Kden, 3, 2, 2, (mtx_type*)K);
+
+    // gather measurement vector
+    y[0][0] = ctrl_signal;
+    y[1][0] = Heave_acc;
+
+    // Prediction correction step
+    Matrix.Multiply((mtx_type*)H, (mtx_type*)x_minus, 2, 3, 1, (mtx_type*)x_t21);
+    Matrix.Subtract((mtx_type*)y, (mtx_type*)x_t21, 2, 1, (mtx_type*)x_2t21);
+    Matrix.Multiply((mtx_type*)K, (mtx_type*)x_2t21, 3, 2, 1, (mtx_type*)xtemp);
+    Matrix.Add((mtx_type*)x_minus, (mtx_type*)xtemp, 3, 1, (mtx_type*)x);
+
+    Matrix.Multiply((mtx_type*)K, (mtx_type*)H, 3, 2, 3, (mtx_type*)P);
+    Matrix.Subtract((mtx_type*)I, (mtx_type*)P, 3, 3, (mtx_type*)P_t1);
+    Matrix.Multiply((mtx_type*)P_t1, (mtx_type*)P_minus, 3, 3, 3, (mtx_type*)P);
+  }
+  if (x[0][0] < 10) x[0][0] = 10; // min threshold on RH
+  else if (x[0][0] > 3000) x[0][0] = 3000; // max threshold on RH
+
+  ctrl_signal = x[0][0];
+  // -- end of -- Kalman Filter calcs ------------
+
   err = RH_setP - ctrl_signal;
-  flap_percent = 1 * P * err + 0.2; // add bias to account for neutral lift offset
+  flap_percent = 1 * P_gain * err + 0.2; // add bias to account for neutral lift offset
 
   if (servo_enabled) {
     flap_cmd_pulse = flap_percent * (MOTHMAX - MOTHMIN) + MOTHMIN;
     flap_cmd_pulse = map(flap_cmd_pulse, MOTHMIN, MOTHMAX, MOTHMAX, MOTHMIN);
   }
   else {
-    flap_cmd_pulse = servo_middle;
+    if (abs(map(RHA, 140, 600, MOTHMIN, MOTHMAX) - flap_cmd_pulse) > 15) { // prevents jittering since the servo should be disabled
+          flap_cmd_pulse = map(RHA, 140, 600, MOTHMIN, MOTHMAX);
+    }
+//    flap_cmd_pulse = servo_middle;
+    x[1][0] = 0.0; // clamp the IMU velocity term to zero when the servo isn't enabled
   }
   if (SERVOMIN < flap_cmd_pulse && flap_cmd_pulse < SERVOMAX) {
     // debugging
-    Serial.print(" dt: ");
-    Serial.println(delta_t);
-//    Serial.print(" US dist: ");
-//    Serial.print(US_dist);
-//    Serial.print(" ctrl sig: ");
-//    Serial.print(ctrl_signal);
-//    Serial.print(" flap percent: ");
-//    Serial.print(flap_percent);
-//    Serial.print(" flap command pulse: ");
-//    Serial.print(flap_cmd_pulse);
+    //    Serial.print(" ctrl sig: ");
+//    Serial.println(ctrl_signal);
+    //    Serial.print(" dt: ");
+    //    Serial.println(delta_t);
+    //    Serial.print(" US dist: ");
+    //    Serial.print(US_dist);
+    //    Serial.print(" ctrl sig: ");
+    //    Serial.print(ctrl_signal);
+    //    Serial.print(" flap percent: ");
+    //    Serial.print(flap_percent);
+    //    Serial.print(" flap command pulse: ");
+    //    Serial.print(flap_cmd_pulse);
     // end of debugging
     pwm.setPWM(servonum, 0, flap_cmd_pulse);
   }
